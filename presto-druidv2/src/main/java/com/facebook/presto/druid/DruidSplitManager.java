@@ -18,8 +18,9 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
@@ -47,11 +48,11 @@ public class DruidSplitManager
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            ConnectorTableLayoutHandle layout,
-            SplitSchedulingStrategy splitSchedulingContext)
+            ConnectorTableHandle tableHandle,
+            SplitSchedulingStrategy splitSchedulingContext,
+            DynamicFilter dynamicFilter)
     {
-        DruidTableLayoutHandle layoutHandle = (DruidTableLayoutHandle) layout;
-        DruidTableHandle table = layoutHandle.getTable();
+        DruidTableHandle table = (DruidTableHandle) tableHandle;
         //if (isComputePushdownEnabled(session) || (table.getDql().isPresent() && table.getDql().get().getPushdown())) {
         // TODO
         if (isComputePushdownEnabled(session)) {

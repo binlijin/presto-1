@@ -33,8 +33,11 @@ import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
@@ -43,6 +46,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -168,6 +172,40 @@ public class DruidMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        DruidTableHandle handle = (DruidTableHandle) table;
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        handle = new DruidTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getConstraint(),
+                OptionalLong.of(limit));
+        return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        DruidTableHandle handle = (DruidTableHandle) table;
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new DruidTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                newDomain,
+                handle.getLimit());
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

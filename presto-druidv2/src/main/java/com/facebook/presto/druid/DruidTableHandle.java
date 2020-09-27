@@ -15,10 +15,13 @@ package com.facebook.presto.druid;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,14 +31,25 @@ public class DruidTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final TupleDomain<ColumnHandle> constraint;
+    private final OptionalLong limit;
+
+    public DruidTableHandle(String schemaName, String tableName)
+    {
+        this(schemaName, tableName, TupleDomain.all(), OptionalLong.empty());
+    }
 
     @JsonCreator
     public DruidTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -48,6 +62,18 @@ public class DruidTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
     }
 
     @Override
@@ -77,6 +103,8 @@ public class DruidTableHandle
         return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("constraint", constraint)
+                .add("limit", limit)
                 .toString();
     }
 
