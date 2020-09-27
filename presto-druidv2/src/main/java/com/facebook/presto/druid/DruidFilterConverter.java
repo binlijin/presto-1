@@ -11,115 +11,66 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.pinot.query;
+package com.facebook.presto.druid;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.pinot.PinotTableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.query.filter.AndDimFilter;
+import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.InDimFilter;
+import org.apache.druid.query.filter.SelectorDimFilter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public final class PinotQueryBuilder
+public class DruidFilterConverter
 {
-    private static final Logger LOG = Logger.get(PinotQueryBuilder.class);
+    private static final Logger LOG = Logger.get(DruidFilterConverter.class);
 
-    private PinotQueryBuilder()
+    static {
+        NullHandling.initializeForTests();
+    }
+
+    private DruidFilterConverter()
     {
     }
 
-    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
+    public static DimFilter generateFilter(DruidTableHandle tableHandle,
+            List<DruidColumnHandle> columnHandles)
     {
-        LOG.info("PinotTableHandle=" + tableHandle + ", columnHandles=" + columnHandles
-                + ", tableNameSuffix=" + tableNameSuffix + ", timePredicate=" + timePredicate
-                + ", limitForSegmentQueries=" + limitForSegmentQueries);
-        requireNonNull(tableHandle, "tableHandle is null");
-        StringBuilder pqlBuilder = new StringBuilder();
-        List<String> columnNames;
-        if (columnHandles.isEmpty()) {
-            // This occurs when the query is SELECT COUNT(*) FROM pinotTable ...
-            columnNames = ImmutableList.of("*");
-        }
-        else {
-            columnNames = columnHandles.stream()
-                    .map(PinotColumnHandle::getColumnName)
-                    .collect(toImmutableList());
-        }
-
-        pqlBuilder.append("SELECT ");
-        pqlBuilder.append(String.join(", ", columnNames))
-                .append(" FROM ")
-                .append(getTableName(tableHandle, tableNameSuffix))
-                .append(" ");
-        generateFilterPql(pqlBuilder, tableHandle, timePredicate, columnHandles);
-        OptionalLong appliedLimit = tableHandle.getLimit();
-        long limit = limitForSegmentQueries + 1;
-        if (appliedLimit.isPresent()) {
-            limit = Math.min(limit, appliedLimit.getAsLong());
-        }
-        pqlBuilder.append(" LIMIT ")
-                .append(limit);
-        return pqlBuilder.toString();
-    }
-
-    private static String getTableName(PinotTableHandle tableHandle, Optional<String> tableNameSuffix)
-    {
-        if (tableNameSuffix.isPresent()) {
-            return new StringBuilder(tableHandle.getTableName())
-                    .append(tableNameSuffix.get())
-                    .toString();
-        }
-        return tableHandle.getTableName();
-    }
-
-    private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
-    {
-        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, columnHandles);
-        if (filterClause.isPresent()) {
-            pqlBuilder.append(" WHERE ")
-                    .append(filterClause.get());
-        }
-    }
-
-    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
-    {
-        ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
-        timePredicate.ifPresent(conjunctsBuilder::add);
+        TupleDomain<ColumnHandle> tupleDomain = tableHandle.getConstraint();
+        List<DimFilter> fields = new ArrayList<>();
         if (!tupleDomain.equals(TupleDomain.all())) {
-            for (PinotColumnHandle columnHandle : columnHandles) {
+            for (DruidColumnHandle columnHandle : columnHandles) {
                 Domain domain = tupleDomain.getDomains().get().get(columnHandle);
-                LOG.info("columnHandle = " + columnHandle + ", domain = " + domain);
                 if (domain != null) {
-                    conjunctsBuilder.add(toPredicate(columnHandle.getColumnName(), domain));
+                    DimFilter filter = toPredicate(columnHandle.getColumnName(), domain);
+                    if (filter != null) {
+                        fields.add(filter);
+                    }
                 }
             }
         }
-        List<String> conjuncts = conjunctsBuilder.build();
-        if (!conjuncts.isEmpty()) {
-            return Optional.of(Joiner.on(" AND ").join(conjuncts));
+        if (fields.isEmpty()) {
+            return null;
         }
         else {
-            return Optional.empty();
+            return new AndDimFilter(fields);
         }
     }
 
-    private static String toPredicate(String columnName, Domain domain)
+    private static DimFilter toPredicate(String columnName, Domain domain)
     {
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
@@ -161,19 +112,27 @@ public final class PinotQueryBuilder
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
-                LOG.info("disjuncts = " + disjuncts);
             }
         }
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
-            LOG.info("disjuncts = " + disjuncts);
+            //disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
+            Object value = getOnlyElement(singleValues);
+            SelectorDimFilter selectorDimFilter =
+                    new SelectorDimFilter(columnName, singleQuote(value), null);
+            return selectorDimFilter;
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(format("%s", inClauseValues(columnName, singleValues)));
-            LOG.info("disjuncts = " + disjuncts);
+            //disjuncts.add(format("%s", inClauseValues(columnName, singleValues)));
+            List<String> values = new ArrayList<>();
+            for (Object value : singleValues) {
+                values.add(singleQuote(value));
+            }
+            InDimFilter inDimFilter = new InDimFilter(columnName, values, null, null);
+            return inDimFilter;
         }
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+        LOG.info("disjuncts = " + disjuncts);
+        return null;
     }
 
     private static String toConjunct(String columnName, String operator, Object value)
@@ -181,14 +140,13 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        LOG.info("columnName = " + columnName + ", operator = " + operator + " value = " + value);
         return format("%s %s %s", columnName, operator, singleQuote(value));
     }
 
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
         return format("%s IN (%s)", columnName, singleValues.stream()
-                .map(PinotQueryBuilder::singleQuote)
+                .map(DruidFilterConverter::singleQuote)
                 .collect(joining(", ")));
     }
 
@@ -197,6 +155,6 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        return format("'%s'", value);
+        return format("%s", value);
     }
 }

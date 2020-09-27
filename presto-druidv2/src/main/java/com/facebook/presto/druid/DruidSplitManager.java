@@ -60,6 +60,7 @@ public class DruidSplitManager
             return new FixedSplitSource(ImmutableList.of(createBrokerSplit()));
         }
         List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
+        // TODO according to timestamp filter segments
 
         List<DruidSplit> splits = segmentIds.stream()
                 .map(id -> druidClient.getSingleSegmentInfo(table.getTableName(), id))

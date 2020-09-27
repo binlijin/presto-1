@@ -20,7 +20,6 @@ import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class DruidHandleResolver
@@ -30,12 +29,6 @@ public class DruidHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return DruidTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return DruidTableLayoutHandle.class;
     }
 
     @Override

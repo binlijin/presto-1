@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.druid.version>0.18.1</dep.druid.version>
+        <dep.roaringbitmap.version>0.8.11</dep.roaringbitmap.version>
     </properties>
 
     <dependencies>
@@ -275,6 +276,12 @@
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>RoaringBitmap</artifactId>
+            <version>${dep.roaringbitmap.version}</version>
         </dependency>
 
         <dependency>

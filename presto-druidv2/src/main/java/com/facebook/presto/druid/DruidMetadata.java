@@ -28,10 +28,8 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
@@ -47,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidTableHandle.fromSchemaTableName;
@@ -80,20 +77,6 @@ public class DruidMetadata
                 .map(name -> fromSchemaTableName(tableName))
                 .findFirst()
                 .orElse(null);
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        DruidTableHandle handle = (DruidTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new DruidTableLayoutHandle(handle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
     }
 
     @Override
@@ -206,6 +189,18 @@ public class DruidMetadata
                 newDomain,
                 handle.getLimit());
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

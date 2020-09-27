@@ -22,6 +22,7 @@ import com.facebook.presto.druid.segment.SegmentIndexSource;
 import com.facebook.presto.druid.segment.SmooshedColumnSource;
 import com.facebook.presto.druid.segment.V9SegmentIndexSource;
 import com.facebook.presto.druid.segment.ZipIndexFileSource;
+import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -30,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -38,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_DEEP_STORAGE_ERROR;
@@ -47,6 +50,8 @@ import static java.util.Objects.requireNonNull;
 public class DruidPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger LOG = Logger.get(DruidPageSourceProvider.class);
+
     private final DruidClient druidClient;
     private final Configuration hadoopConfiguration;
 
@@ -62,7 +67,7 @@ public class DruidPageSourceProvider
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
-            ConnectorTableHandle table,
+            ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
         DruidSplit druidSplit = (DruidSplit) split;
@@ -70,6 +75,21 @@ public class DruidPageSourceProvider
             return new DruidBrokerPageSource(
                     columns,
                     druidClient);
+        }
+        DruidTableHandle druidTableHandle = (DruidTableHandle) tableHandle;
+        List<DruidColumnHandle> handles = new ArrayList<>();
+        for (ColumnHandle handle : columns) {
+            handles.add((DruidColumnHandle) handle);
+        }
+        // convert push down filter to druid filter.
+        DimFilter filter = DruidFilterConverter.generateFilter(druidTableHandle, handles);
+        long limit = Long.MAX_VALUE;
+        if (druidTableHandle.getLimit().isPresent()) {
+            limit = druidTableHandle.getLimit().getAsLong();
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("filter = " + filter);
+            LOG.debug("limit = " + limit);
         }
 
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
@@ -87,7 +107,7 @@ public class DruidPageSourceProvider
             return new DruidSegmentPageSource(
                     dataInputSource,
                     columns,
-                    new DruidSegmentReader(segmentIndexSource, columns));
+                    new DruidSegmentReader(segmentIndexSource, columns, filter, limit));
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Failed to create page source on " + segmentInfo.getDeepStoragePath(), e);

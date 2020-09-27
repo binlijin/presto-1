@@ -13,6 +13,7 @@
  */
 package io.prestosql.pinot;
 
+import io.airlift.log.Logger;
 import io.prestosql.pinot.client.PinotClient;
 import io.prestosql.pinot.client.PinotQueryClient;
 import io.prestosql.pinot.query.DynamicTable;
@@ -38,6 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger LOG = Logger.get(PinotPageSourceProvider.class);
+
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
     private final int limitForSegmentQueries;
@@ -75,6 +78,7 @@ public class PinotPageSourceProvider
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
         String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
+        LOG.info("generatePql query = " + query);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
