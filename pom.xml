@@ -90,6 +90,7 @@
         <module>presto-client</module>
         <module>presto-docs</module>
         <module>presto-druid</module>
+        <module>presto-druidv2</module>
         <module>presto-elasticsearch</module>
         <module>presto-example-http</module>
         <module>presto-geospatial</module>
