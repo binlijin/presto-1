@@ -1318,6 +1318,8 @@
                         </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/base/.*</exclusionPattern>
+                            <exclusionPattern>org/apache/hadoop/.*</exclusionPattern>
                         </exclusionPatterns>
                     </configuration>
                 </plugin>
