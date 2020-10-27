@@ -97,7 +97,8 @@ public class V9SegmentIndexSource
         catch (JsonParseException | JsonMappingException e) {
             // Any jackson deserialization errors are ignored e.g. if metadata contains some aggregator which
             // is no longer supported then it is OK to not use the metadata instead of failing segment loading
-            log.warn(e, "Failed to load metadata for segment");
+            // log.warn(e, "Failed to load metadata for segment");
+            // No 'injectableValues' configured, cannot inject value with id [org.apache.druid.math.expr.ExprMacroTable]
         }
 
         Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();

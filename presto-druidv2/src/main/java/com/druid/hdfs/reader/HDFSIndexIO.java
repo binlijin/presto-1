@@ -25,6 +25,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.common.utils.SerializerUtils;
@@ -53,6 +54,8 @@ import org.apache.druid.segment.column.StringDictionaryEncodedColumn;
 import org.apache.druid.segment.data.BitmapSerde;
 import org.apache.druid.segment.data.BitmapSerdeFactory;
 import org.apache.druid.segment.data.GenericIndexed;
+import org.apache.druid.segment.data.Indexed;
+import org.apache.druid.segment.data.ListIndexed;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -65,6 +68,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -126,9 +130,30 @@ public class HDFSIndexIO
         return null;
     }
 
+    public QueryableIndex loadIndex(FileSystem fileSystem, Path path, List<String> columns)
+            throws IOException
+    {
+        if (fileSystem.exists(path)) {
+            final int version = HDFSVersion.getVersionFromDir(fileSystem, path);
+            final HDFSIndexLoader loader = indexLoaders.get(version);
+
+            if (loader != null) {
+                return loader.load(fileSystem, path, columns, mapper, false);
+            }
+            else {
+                throw new ISE("Unknown index version[%s]", version);
+            }
+        }
+        return null;
+    }
+
     interface HDFSIndexLoader
     {
         QueryableIndex load(FileSystem fileSystem, Path inDir, ObjectMapper mapper, boolean lazy)
+                throws IOException;
+
+        QueryableIndex load(FileSystem fileSystem, Path inDir, List<String> columns,
+                ObjectMapper mapper, boolean lazy)
                 throws IOException;
     }
 
@@ -142,8 +167,16 @@ public class HDFSIndexIO
             this.columnConfig = columnConfig;
         }
 
-        @Override public QueryableIndex load(FileSystem fileSystem, Path inDir, ObjectMapper mapper,
+        @Override
+        public QueryableIndex load(FileSystem fileSystem, Path inDir, ObjectMapper mapper,
                 boolean lazy) throws IOException
+        {
+            return load(fileSystem, inDir, null, mapper, lazy);
+        }
+
+        @Override
+        public QueryableIndex load(FileSystem fileSystem, Path inDir, List<String> selColumns,
+                ObjectMapper mapper, boolean lazy) throws IOException
         {
             log.debug("Mapping v9 index[%s]", inDir);
             long startTime = System.currentTimeMillis();
@@ -225,7 +258,8 @@ public class HDFSIndexIO
                 catch (JsonParseException | JsonMappingException ex) {
                     // Any jackson deserialization errors are ignored e.g. if metadata contains some aggregator which
                     // is no longer supported then it is OK to not use the metadata instead of failing segment loading
-                    log.warn(ex, "Failed to load metadata for segment [%s]", inDir);
+                    // log.warn(ex, "Failed to load metadata for segment [%s]", inDir);
+                    // No 'injectableValues' configured, cannot inject value with id [org.apache.druid.math.expr.ExprMacroTable]
                 }
                 catch (IOException ex) {
                     throw new IOException("Failed to read metadata", ex);
@@ -235,7 +269,14 @@ public class HDFSIndexIO
 
             Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
 
-            for (String columnName : cols) {
+            List<String> selectCs = null;
+            if (selColumns == null || selColumns.isEmpty()) {
+                selectCs = Lists.newArrayList(cols);
+            }
+            else {
+                selectCs = selColumns;
+            }
+            for (String columnName : selectCs) {
                 if (Strings.isNullOrEmpty(columnName)) {
                     log.warn("Null or Empty Dimension found in the file : " + inDir);
                     continue;
@@ -316,8 +357,14 @@ public class HDFSIndexIO
                 columns.put(ColumnHolder.TIME_COLUMN_NAME, () -> columnHolder);
             }
 
-            final QueryableIndex index = new HDFSSimpleQueryableIndex(dataInterval, dims,
-                    segmentBitmapSerdeFactory.getBitmapFactory(), columns, smooshedFiles, metadata,
+            Indexed<String> indexed = new ListIndexed<>(selectCs);
+            final QueryableIndex index = new HDFSSimpleQueryableIndex(
+                    dataInterval,
+                    indexed,
+                    segmentBitmapSerdeFactory.getBitmapFactory(),
+                    columns,
+                    smooshedFiles,
+                    metadata,
                     lazy);
 
             log.debug("Mapped v9 index[%s] in %,d millis", inDir,

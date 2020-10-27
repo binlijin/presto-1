@@ -23,6 +23,7 @@ import io.prestosql.druid.segment.SegmentIndexSource;
 import io.prestosql.druid.segment.SmooshedColumnSource;
 import io.prestosql.druid.segment.V9SegmentIndexSource;
 import io.prestosql.druid.segment.ZipIndexFileSource;
+import io.prestosql.druid.uncompress.DruidUncompressedSegmentReader;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -98,19 +99,26 @@ public class DruidPageSourceProvider
         try {
             Path segmentPath = new Path(segmentInfo.getDeepStoragePath());
             FileSystem fileSystem = segmentPath.getFileSystem(hadoopConfiguration);
-            long fileSize = fileSystem.getFileStatus(segmentPath).getLen();
-            FSDataInputStream inputStream = fileSystem.open(segmentPath);
-            DataInputSourceId dataInputSourceId = new DataInputSourceId(segmentPath.toString());
-            HdfsDataInputSource
-                    dataInputSource = new HdfsDataInputSource(dataInputSourceId, inputStream, fileSize);
-            IndexFileSource indexFileSource = new ZipIndexFileSource(dataInputSource);
-            SegmentColumnSource segmentColumnSource = new SmooshedColumnSource(indexFileSource);
-            SegmentIndexSource segmentIndexSource = new V9SegmentIndexSource(segmentColumnSource);
+            if (fileSystem.isDirectory(segmentPath)) {
+                // TODO
+                DruidUncompressedSegmentReader reader =
+                        new DruidUncompressedSegmentReader(fileSystem, segmentPath, columns, filter,
+                                limit);
+                return new DruidUncompressedSegmentPageSource(columns, reader);
+            }
+            else {
+                long fileSize = fileSystem.getFileStatus(segmentPath).getLen();
+                FSDataInputStream inputStream = fileSystem.open(segmentPath);
+                DataInputSourceId dataInputSourceId = new DataInputSourceId(segmentPath.toString());
+                HdfsDataInputSource dataInputSource =
+                        new HdfsDataInputSource(dataInputSourceId, inputStream, fileSize);
+                IndexFileSource indexFileSource = new ZipIndexFileSource(dataInputSource);
+                SegmentColumnSource segmentColumnSource = new SmooshedColumnSource(indexFileSource);
+                SegmentIndexSource segmentIndexSource = new V9SegmentIndexSource(segmentColumnSource);
 
-            return new DruidSegmentPageSource(
-                    dataInputSource,
-                    columns,
-                    new DruidSegmentReader(segmentIndexSource, columns, filter, limit));
+                return new DruidSegmentPageSource(dataInputSource, columns,
+                        new DruidSegmentReader(segmentIndexSource, columns, filter, limit));
+            }
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Failed to create page source on " + segmentInfo.getDeepStoragePath(), e);
