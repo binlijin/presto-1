@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -68,7 +69,8 @@ public class DruidPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         DruidSplit druidSplit = (DruidSplit) split;
         if (druidSplit.getSplitType() == BROKER) {
