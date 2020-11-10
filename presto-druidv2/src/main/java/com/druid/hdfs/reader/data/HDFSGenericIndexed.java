@@ -15,7 +15,6 @@ package com.druid.hdfs.reader.data;
 
 import com.druid.hdfs.reader.HDFSSmooshedFileMapper;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.data.Indexed;
@@ -25,8 +24,6 @@ import org.apache.druid.segment.data.ObjectStrategy;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 /**
@@ -66,7 +63,6 @@ public class HDFSGenericIndexed<T>
     static final byte VERSION_ONE = 0x1;
     static final byte VERSION_TWO = 0x2;
     static final byte REVERSE_LOOKUP_ALLOWED = 0x1;
-    static final byte REVERSE_LOOKUP_DISALLOWED = 0x0;
 
     static final int NULL_VALUE_SIZE_MARKER = -1;
 
@@ -113,43 +109,28 @@ public class HDFSGenericIndexed<T>
         HDFSByteBuff bufferToUse = byteBuff.duplicate();
         bufferToUse.limit(bufferToUse.position() + size);
         byteBuff.position(bufferToUse.limit());
-        return new HDFSGenericIndexed<>(bufferToUse, strategy, allowReverseLookup);
+        HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed =
+                new HDFSByteBuffGenericIndexed<T>(bufferToUse, strategy, allowReverseLookup);
+        return new HDFSGenericIndexed(hdfsByteBuffGenericIndexed);
     }
 
-    private final boolean versionOne;
-
-    private final ObjectStrategy<T> strategy;
-    private final boolean allowReverseLookup;
     private final int size;
-
-    private final HDFSByteBuff headerBuffer;
-    private final HDFSByteBuff firstValueBuffer;
-    private final HDFSByteBuff[] valueBuffers;
-
-    private final HDFSByteBuff theBuffer;
+    private HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed;
+    private ByteBufferGenericIndexed<T> byteBufferGenericIndexed;
 
     /**
      * Constructor for version one.
      */
-    HDFSGenericIndexed(HDFSByteBuff buffer, ObjectStrategy<T> strategy, boolean allowReverseLookup)
-            throws IOException
+    HDFSGenericIndexed(HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed)
     {
-        this.versionOne = true;
+        this.size = hdfsByteBuffGenericIndexed.size();
+        this.hdfsByteBuffGenericIndexed = hdfsByteBuffGenericIndexed;
+    }
 
-        this.theBuffer = buffer;
-        this.strategy = strategy;
-        this.allowReverseLookup = allowReverseLookup;
-        this.size = theBuffer.getInt();
-
-        int indexOffset = theBuffer.position();
-        int valuesOffset = theBuffer.position() + size * Integer.BYTES;
-
-        buffer.position(valuesOffset);
-        // Ensure the value buffer's limit equals to capacity.
-        firstValueBuffer = buffer.slice();
-        valueBuffers = new HDFSByteBuff[] {firstValueBuffer};
-        buffer.position(indexOffset);
-        headerBuffer = buffer.slice();
+    HDFSGenericIndexed(ByteBufferGenericIndexed<T> byteBufferGenericIndexed)
+    {
+        this.size = byteBufferGenericIndexed.size();
+        this.byteBufferGenericIndexed = byteBufferGenericIndexed;
     }
 
     /**
@@ -170,123 +151,53 @@ public class HDFSGenericIndexed<T>
         }
     }
 
-    @Override public void close() throws IOException
+    @Override
+    public void close() throws IOException
     {
     }
 
-    @Override public int size()
+    @Override
+    public int size()
     {
         return size;
     }
 
-    @Nullable @Override public T get(int index)
+    @Nullable
+    @Override
+    public T get(int index)
     {
-        return versionOne ? getVersionOne(index) : null;
-    }
-
-    @Nullable private T getVersionOne(int index)
-    {
-        try {
-            checkIndex(index);
-
-            final int startOffset;
-            final int endOffset;
-
-            if (index == 0) {
-                startOffset = Integer.BYTES;
-                endOffset = headerBuffer.getInt(0);
-            }
-            else {
-                int headerPosition = (index - 1) * Integer.BYTES;
-                startOffset = headerBuffer.getInt(headerPosition) + Integer.BYTES;
-                endOffset = headerBuffer.getInt(headerPosition + Integer.BYTES);
-            }
-            return copyBufferAndGet(firstValueBuffer, startOffset, endOffset);
+        if (hdfsByteBuffGenericIndexed != null) {
+            return hdfsByteBuffGenericIndexed.get(index);
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
+        else {
+            return byteBufferGenericIndexed.get(index);
         }
     }
 
-    @Nullable private T copyBufferAndGet(HDFSByteBuff valueBuffer, int startOffset, int endOffset)
-            throws IOException
+    @Override
+    public int indexOf(@Nullable T value)
     {
-        HDFSByteBuff copyValueBuffer = valueBuffer.duplicate();
-
-        int size = endOffset - startOffset;
-        // When size is 0 and SQL compatibility is enabled also check for null marker before returning null.
-        // When SQL compatibility is not enabled return null for both null as well as empty string case.
-        if (size == 0 && (NullHandling.replaceWithDefault())
-                || copyValueBuffer.get(startOffset - Integer.BYTES) == NULL_VALUE_SIZE_MARKER) {
-            return null;
+        if (hdfsByteBuffGenericIndexed != null) {
+            return hdfsByteBuffGenericIndexed.indexOf(value);
         }
-        copyValueBuffer.position(startOffset);
-        ByteBuffer value = getValue(copyValueBuffer, size);
-        // fromByteBuffer must not modify the buffer limit
-        return strategy.fromByteBuffer(value, size);
-    }
-
-    private ByteBuffer getValue(HDFSByteBuff valueBuffer, int size) throws IOException
-    {
-        byte[] bytes = new byte[size];
-        valueBuffer.get(bytes);
-        return ByteBuffer.wrap(bytes);
-    }
-
-    @Override public int indexOf(@Nullable T value)
-    {
-        return indexOf(this, value);
-    }
-
-    private int indexOf(Indexed<T> indexed, @Nullable T value)
-    {
-        if (!allowReverseLookup) {
-            throw new UnsupportedOperationException("Reverse lookup not allowed.");
+        else {
+            return byteBufferGenericIndexed.indexOf(value);
         }
-
-        int minIndex = 0;
-        int maxIndex = size - 1;
-        while (minIndex <= maxIndex) {
-            int currIndex = (minIndex + maxIndex) >>> 1;
-
-            T currValue = indexed.get(currIndex);
-            int comparison = strategy.compare(currValue, value);
-            if (comparison == 0) {
-                return currIndex;
-            }
-
-            if (comparison < 0) {
-                minIndex = currIndex + 1;
-            }
-            else {
-                maxIndex = currIndex - 1;
-            }
-        }
-
-        return -(minIndex + 1);
     }
 
-    @Override public Iterator<T> iterator()
+    @Override
+    public Iterator<T> iterator()
     {
         return IndexedIterable.create(this).iterator();
     }
 
-    @Override public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+    @Override
+    public void inspectRuntimeShape(RuntimeShapeInspector inspector)
     {
-        inspector.visit("versionOne", versionOne);
-        inspector.visit("headerBuffer", headerBuffer);
-        if (versionOne) {
-            inspector.visit("firstValueBuffer", firstValueBuffer);
-        }
-        else {
-            // Inspecting just one example of valueBuffer, not needed to inspect the whole array, because all buffers in it
-            // are the same.
-            inspector.visit("valueBuffer", valueBuffers.length > 0 ? valueBuffers[0] : null);
-        }
-        inspector.visit("strategy", strategy);
     }
 
-    @Override public String toString()
+    @Override
+    public String toString()
     {
         StringBuilder sb = new StringBuilder("HDFSGenericIndexedV2[");
         if (size() > 0) {
@@ -303,30 +214,10 @@ public class HDFSGenericIndexed<T>
     abstract class BufferIndexed
             implements Indexed<T>
     {
-        int lastReadSize;
-
-        @Override public int size()
+        @Override
+        public int size()
         {
             return size;
-        }
-
-        @Nullable T bufferedIndexedGet(HDFSByteBuff copyValueBuffer, int startOffset, int endOffset)
-                throws IOException
-        {
-            int size = endOffset - startOffset;
-            // When size is 0 and SQL compatibility is enabled also check for null marker before returning null.
-            // When SQL compatibility is not enabled return null for both null as well as empty string case.
-            if (size == 0 && (NullHandling.replaceWithDefault()
-                    || copyValueBuffer.get(startOffset - Integer.BYTES)
-                    == NULL_VALUE_SIZE_MARKER)) {
-                return null;
-            }
-            lastReadSize = size;
-
-            copyValueBuffer.clear();
-            copyValueBuffer.position(startOffset);
-            ByteBuffer value = getValue(copyValueBuffer, size);
-            return strategy.fromByteBuffer(value, size);
         }
 
         /**
@@ -334,17 +225,10 @@ public class HDFSGenericIndexed<T>
          *
          * @return the size in bytes of the last value read
          */
-        int getLastValueSize()
-        {
-            return lastReadSize;
-        }
+        abstract int getLastValueSize();
 
-        @Override public int indexOf(@Nullable T value)
-        {
-            return HDFSGenericIndexed.this.indexOf(this, value);
-        }
-
-        @Override public Iterator<T> iterator()
+        @Override
+        public Iterator<T> iterator()
         {
             return HDFSGenericIndexed.this.iterator();
         }
@@ -357,44 +241,62 @@ public class HDFSGenericIndexed<T>
      */
     public HDFSGenericIndexed<T>.BufferIndexed singleThreaded()
     {
-        return versionOne ? singleThreadedVersionOne() : singleThreadedVersionTwo();
-    }
-
-    private BufferIndexed singleThreadedVersionOne()
-    {
-        final HDFSByteBuff copyBuffer = firstValueBuffer.duplicate();
-        return new BufferIndexed() {
-            @Override public T get(final int index)
-            {
-                try {
-                    checkIndex(index);
-
-                    final int startOffset;
-                    final int endOffset;
-
-                    if (index == 0) {
-                        startOffset = Integer.BYTES;
-                        endOffset = headerBuffer.getInt(0);
-                    }
-                    else {
-                        int headerPosition = (index - 1) * Integer.BYTES;
-                        startOffset = headerBuffer.getInt(headerPosition) + Integer.BYTES;
-                        endOffset = headerBuffer.getInt(headerPosition + Integer.BYTES);
-                    }
-                    return bufferedIndexedGet(copyBuffer, startOffset, endOffset);
+        if (hdfsByteBuffGenericIndexed != null) {
+            final HDFSByteBuffGenericIndexed<T>.BufferIndexed bufferIndexed =
+                    hdfsByteBuffGenericIndexed.singleThreaded();
+            return new BufferIndexed() {
+                @Override
+                public void inspectRuntimeShape(RuntimeShapeInspector runtimeShapeInspector)
+                {
                 }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
 
-            @Override public void inspectRuntimeShape(RuntimeShapeInspector inspector)
-            {
-                inspector.visit("headerBuffer", headerBuffer);
-                inspector.visit("copyBuffer", copyBuffer);
-                inspector.visit("strategy", strategy);
-            }
-        };
+                @Nullable
+                @Override
+                public T get(int i)
+                {
+                    return bufferIndexed.get(i);
+                }
+
+                @Override
+                public int indexOf(@Nullable T value)
+                {
+                    return bufferIndexed.indexOf(value);
+                }
+
+                int getLastValueSize()
+                {
+                    return bufferIndexed.getLastValueSize();
+                }
+            };
+        }
+        else {
+            final ByteBufferGenericIndexed<T>.BufferIndexed bufferIndexed =
+                    byteBufferGenericIndexed.singleThreaded();
+            return new BufferIndexed() {
+                @Override
+                public void inspectRuntimeShape(RuntimeShapeInspector runtimeShapeInspector)
+                {
+                }
+
+                @Nullable
+                @Override
+                public T get(int i)
+                {
+                    return bufferIndexed.get(i);
+                }
+
+                @Override
+                public int indexOf(@Nullable T value)
+                {
+                    return bufferIndexed.indexOf(value);
+                }
+
+                int getLastValueSize()
+                {
+                    return bufferIndexed.getLastValueSize();
+                }
+            };
+        }
     }
 
     private HDFSGenericIndexed.BufferIndexed singleThreadedVersionTwo()
