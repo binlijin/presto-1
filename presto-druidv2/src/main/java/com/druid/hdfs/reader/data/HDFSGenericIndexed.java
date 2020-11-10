@@ -16,6 +16,7 @@ package com.druid.hdfs.reader.data;
 import com.druid.hdfs.reader.HDFSSmooshedFileMapper;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.data.Indexed;
 import org.apache.druid.segment.data.IndexedIterable;
@@ -24,6 +25,7 @@ import org.apache.druid.segment.data.ObjectStrategy;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 /**
@@ -60,11 +62,10 @@ import java.util.Iterator;
 public class HDFSGenericIndexed<T>
         implements Indexed<T>, java.io.Closeable
 {
+    private static final Logger log = new Logger(HDFSGenericIndexed.class);
     static final byte VERSION_ONE = 0x1;
     static final byte VERSION_TWO = 0x2;
     static final byte REVERSE_LOOKUP_ALLOWED = 0x1;
-
-    static final int NULL_VALUE_SIZE_MARKER = -1;
 
     public static <T> HDFSGenericIndexed<T> read(HDFSByteBuff buffer, ObjectStrategy<T> strategy)
             throws IOException
@@ -72,7 +73,23 @@ public class HDFSGenericIndexed<T>
         byte versionFromBuffer = buffer.get();
 
         if (VERSION_ONE == versionFromBuffer) {
-            return createGenericIndexedVersionOne(buffer, strategy);
+            return createGenericIndexedVersionOne(buffer, strategy, false);
+        }
+        else if (VERSION_TWO == versionFromBuffer) {
+            throw new IAE(
+                    "use read(ByteBuffer buffer, ObjectStrategy<T> strategy, SmooshedFileMapper fileMapper)"
+                            + " to read version 2 indexed.");
+        }
+        throw new IAE("Unknown version[%d]", (int) versionFromBuffer);
+    }
+
+    public static <T> HDFSGenericIndexed<T> read(HDFSByteBuff buffer, ObjectStrategy<T> strategy, boolean readahead)
+            throws IOException
+    {
+        byte versionFromBuffer = buffer.get();
+
+        if (VERSION_ONE == versionFromBuffer) {
+            return createGenericIndexedVersionOne(buffer, strategy, readahead);
         }
         else if (VERSION_TWO == versionFromBuffer) {
             throw new IAE(
@@ -88,7 +105,7 @@ public class HDFSGenericIndexed<T>
         byte versionFromBuffer = byteBuff.get();
 
         if (VERSION_ONE == versionFromBuffer) {
-            return createGenericIndexedVersionOne(byteBuff, strategy);
+            return createGenericIndexedVersionOne(byteBuff, strategy, false);
         }
         else if (VERSION_TWO == versionFromBuffer) {
             //return createGenericIndexedVersionTwo(buffer, strategy, fileMapper);
@@ -102,16 +119,29 @@ public class HDFSGenericIndexed<T>
     ///////////////
 
     private static <T> HDFSGenericIndexed<T> createGenericIndexedVersionOne(HDFSByteBuff byteBuff,
-            ObjectStrategy<T> strategy) throws IOException
+            ObjectStrategy<T> strategy, boolean readahead) throws IOException
     {
         boolean allowReverseLookup = byteBuff.get() == REVERSE_LOOKUP_ALLOWED;
         int size = byteBuff.getInt();
         HDFSByteBuff bufferToUse = byteBuff.duplicate();
         bufferToUse.limit(bufferToUse.position() + size);
         byteBuff.position(bufferToUse.limit());
-        HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed =
-                new HDFSByteBuffGenericIndexed<T>(bufferToUse, strategy, allowReverseLookup);
-        return new HDFSGenericIndexed(hdfsByteBuffGenericIndexed);
+        if (readahead) {
+            if (log.isDebugEnabled()) {
+                log.debug("read ahead size " + size);
+            }
+            byte[] data = new byte[size];
+            bufferToUse.get(data);
+            ByteBufferGenericIndexed<T> byteBufferGenericIndexed =
+                    new ByteBufferGenericIndexed<T>(ByteBuffer.wrap(data), strategy,
+                            allowReverseLookup);
+            return new HDFSGenericIndexed(byteBufferGenericIndexed);
+        }
+        else {
+            HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed =
+                    new HDFSByteBuffGenericIndexed<T>(bufferToUse, strategy, allowReverseLookup);
+            return new HDFSGenericIndexed(hdfsByteBuffGenericIndexed);
+        }
     }
 
     private final int size;

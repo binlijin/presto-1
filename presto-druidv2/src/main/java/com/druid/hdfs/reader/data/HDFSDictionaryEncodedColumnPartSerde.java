@@ -60,7 +60,7 @@ public class HDFSDictionaryEncodedColumnPartSerde
         final boolean hasMultipleValues = isSet(1, rFlags) || isSet(2, rFlags);
 
         final HDFSGenericIndexed<String> rDictionary =
-                HDFSGenericIndexed.read(buffer, GenericIndexed.STRING_STRATEGY);
+                HDFSGenericIndexed.read(buffer, GenericIndexed.STRING_STRATEGY, true);
         builder.setType(ValueType.STRING);
 
         final WritableSupplier<ColumnarInts> rSingleValuedColumn;
