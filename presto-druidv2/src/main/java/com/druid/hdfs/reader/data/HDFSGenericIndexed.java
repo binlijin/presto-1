@@ -127,8 +127,8 @@ public class HDFSGenericIndexed<T>
         bufferToUse.limit(bufferToUse.position() + size);
         byteBuff.position(bufferToUse.limit());
         if (readahead) {
-            if (log.isDebugEnabled()) {
-                log.debug("read ahead size " + size);
+            if (size > 4096) {
+                log.debug("read ahead big size " + size);
             }
             byte[] data = new byte[size];
             bufferToUse.get(data);
@@ -138,6 +138,9 @@ public class HDFSGenericIndexed<T>
             return new HDFSGenericIndexed(byteBufferGenericIndexed);
         }
         else {
+            if (readahead) {
+                //log.debug("size " + size + " is too big, disable read ahead.");
+            }
             HDFSByteBuffGenericIndexed<T> hdfsByteBuffGenericIndexed =
                     new HDFSByteBuffGenericIndexed<T>(bufferToUse, strategy, allowReverseLookup);
             return new HDFSGenericIndexed(hdfsByteBuffGenericIndexed);

@@ -17,6 +17,7 @@ import com.druid.hdfs.reader.HDFSSmooshedFileMapper;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.data.Indexed;
 import org.apache.druid.segment.data.IndexedIterable;
@@ -63,6 +64,7 @@ import java.util.Iterator;
 public class HDFSByteBuffGenericIndexed<T>
         implements Indexed<T>, java.io.Closeable
 {
+    private static final Logger log = new Logger(HDFSByteBuffGenericIndexed.class);
     static final byte VERSION_ONE = 0x1;
     static final byte VERSION_TWO = 0x2;
     static final byte REVERSE_LOOKUP_ALLOWED = 0x1;
@@ -123,6 +125,8 @@ public class HDFSByteBuffGenericIndexed<T>
     private final int size;
 
     private final HDFSByteBuff headerBuffer;
+    private ByteBuffer bufferHeader;
+
     private final HDFSByteBuff firstValueBuffer;
     private final HDFSByteBuff[] valueBuffers;
 
@@ -150,6 +154,15 @@ public class HDFSByteBuffGenericIndexed<T>
         valueBuffers = new HDFSByteBuff[] {firstValueBuffer};
         buffer.position(indexOffset);
         headerBuffer = buffer.slice();
+        bufferHeader = null;
+        if (valuesOffset - indexOffset <= 4096) {
+            byte[] data = new byte[valuesOffset - indexOffset];
+            headerBuffer.get(data);
+            bufferHeader = ByteBuffer.wrap(data);
+        }
+        else {
+            log.debug(" big header buffer " + (valuesOffset - indexOffset));
+        }
     }
 
     /**
@@ -194,17 +207,27 @@ public class HDFSByteBuffGenericIndexed<T>
 
             if (index == 0) {
                 startOffset = Integer.BYTES;
-                endOffset = headerBuffer.getInt(0);
+                endOffset = getIntFromHeaderBuffer(0);
             }
             else {
                 int headerPosition = (index - 1) * Integer.BYTES;
-                startOffset = headerBuffer.getInt(headerPosition) + Integer.BYTES;
-                endOffset = headerBuffer.getInt(headerPosition + Integer.BYTES);
+                startOffset = getIntFromHeaderBuffer(headerPosition) + Integer.BYTES;
+                endOffset = getIntFromHeaderBuffer(headerPosition + Integer.BYTES);
             }
             return copyBufferAndGet(firstValueBuffer, startOffset, endOffset);
         }
         catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private int getIntFromHeaderBuffer(int index) throws IOException
+    {
+        if (bufferHeader != null) {
+            return bufferHeader.getInt(index);
+        }
+        else {
+            return headerBuffer.getInt(index);
         }
     }
 
@@ -274,7 +297,7 @@ public class HDFSByteBuffGenericIndexed<T>
     @Override public void inspectRuntimeShape(RuntimeShapeInspector inspector)
     {
         inspector.visit("versionOne", versionOne);
-        inspector.visit("headerBuffer", headerBuffer);
+        //inspector.visit("headerBuffer", headerBuffer);
         if (versionOne) {
             inspector.visit("firstValueBuffer", firstValueBuffer);
         }
@@ -374,12 +397,12 @@ public class HDFSByteBuffGenericIndexed<T>
 
                     if (index == 0) {
                         startOffset = Integer.BYTES;
-                        endOffset = headerBuffer.getInt(0);
+                        endOffset = getIntFromHeaderBuffer(0);
                     }
                     else {
                         int headerPosition = (index - 1) * Integer.BYTES;
-                        startOffset = headerBuffer.getInt(headerPosition) + Integer.BYTES;
-                        endOffset = headerBuffer.getInt(headerPosition + Integer.BYTES);
+                        startOffset = getIntFromHeaderBuffer(headerPosition) + Integer.BYTES;
+                        endOffset = getIntFromHeaderBuffer(headerPosition + Integer.BYTES);
                     }
                     return bufferedIndexedGet(copyBuffer, startOffset, endOffset);
                 }
@@ -390,7 +413,7 @@ public class HDFSByteBuffGenericIndexed<T>
 
             @Override public void inspectRuntimeShape(RuntimeShapeInspector inspector)
             {
-                inspector.visit("headerBuffer", headerBuffer);
+                //inspector.visit("headerBuffer", headerBuffer);
                 inspector.visit("copyBuffer", copyBuffer);
                 inspector.visit("strategy", strategy);
             }
