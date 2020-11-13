@@ -158,6 +158,8 @@ public class DruidUncompressedSegmentReader
             if (filter instanceof AndFilter) {
                 // If we get an AndFilter, we can split the subfilters across both filtering stages
                 for (Filter subfilter : ((AndFilter) filter).getFilters()) {
+                    // only string typed dimensions support bitmap index
+                    // https://druid.apache.org/docs/latest/ingestion/index.html#dimensionsspec
                     if (subfilter.supportsBitmapIndex(indexSelector) && subfilter
                             .shouldUseBitmapIndex(indexSelector)) {
                         preFilters.add(subfilter);

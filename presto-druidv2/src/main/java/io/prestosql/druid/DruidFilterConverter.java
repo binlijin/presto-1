@@ -20,17 +20,25 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.filter.AndDimFilter;
+import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.ordering.StringComparator;
+import org.apache.druid.query.ordering.StringComparators;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -53,9 +61,13 @@ public class DruidFilterConverter
         List<DimFilter> fields = new ArrayList<>();
         if (!tupleDomain.equals(TupleDomain.all())) {
             for (DruidColumnHandle columnHandle : columnHandles) {
+                // skip druid __time field.
+                if (columnHandle.getColumnName().equalsIgnoreCase("__time")) {
+                    continue;
+                }
                 Domain domain = tupleDomain.getDomains().get().get(columnHandle);
                 if (domain != null) {
-                    DimFilter filter = toPredicate(columnHandle.getColumnName(), domain);
+                    DimFilter filter = toPredicate(columnHandle, domain);
                     if (filter != null) {
                         fields.add(filter);
                     }
@@ -70,10 +82,12 @@ public class DruidFilterConverter
         }
     }
 
-    private static DimFilter toPredicate(String columnName, Domain domain)
+    private static DimFilter toPredicate(DruidColumnHandle columnHandle, Domain domain)
     {
+        String columnName = columnHandle.getColumnName();
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
+        List<DimFilter> fields = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
@@ -81,10 +95,16 @@ public class DruidFilterConverter
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
+                Boolean lowerStrict = null;
+                Boolean upperStrict = null;
+                String lower = null;
+                String upper = null;
                 if (!range.getLow().isLowerUnbounded()) {
+                    lower = singleQuote(range.getLow().getValue());
                     switch (range.getLow().getBound()) {
                         case ABOVE:
                             rangeConjuncts.add(toConjunct(columnName, ">", range.getLow().getValue()));
+                            lowerStrict = true;
                             break;
                         case EXACTLY:
                             rangeConjuncts.add(toConjunct(columnName, ">=", range.getLow().getValue()));
@@ -96,6 +116,7 @@ public class DruidFilterConverter
                     }
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
+                    upper = singleQuote(range.getHigh().getValue());
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -104,6 +125,7 @@ public class DruidFilterConverter
                             break;
                         case BELOW:
                             rangeConjuncts.add(toConjunct(columnName, "<", range.getHigh().getValue()));
+                            upperStrict = true;
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -112,6 +134,16 @@ public class DruidFilterConverter
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                StringComparator ordering = getStringComparator(columnHandle.getColumnType());
+                if (ordering != null) {
+                    BoundDimFilter boundDimFilter =
+                            new BoundDimFilter(columnHandle.getColumnName(), lower, upper,
+                                    lowerStrict, upperStrict, null, null, ordering, null);
+                    fields.add(boundDimFilter);
+                    if (LOG.isDebugEnabled()) {
+                        //LOG.debug("Add BoundDimFilter = " + boundDimFilter);
+                    }
+                }
             }
         }
         // Add back all of the possible single values either as an equality or an IN predicate
@@ -131,7 +163,18 @@ public class DruidFilterConverter
             InDimFilter inDimFilter = new InDimFilter(columnName, values, null, null);
             return inDimFilter;
         }
-        LOG.info("disjuncts = " + disjuncts);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("disjuncts = " + disjuncts);
+        }
+        if (!fields.isEmpty()) {
+            if (fields.size() > 1) {
+                return new AndDimFilter(fields);
+            }
+            else {
+                //LOG.debug("return filter = " + fields.get(0));
+                return fields.get(0);
+            }
+        }
         return null;
     }
 
@@ -156,5 +199,22 @@ public class DruidFilterConverter
             value = ((Slice) value).toStringUtf8();
         }
         return format("%s", value);
+    }
+
+    static StringComparator getStringComparator(Type type)
+    {
+        if (type == VARCHAR) {
+            return StringComparators.LEXICOGRAPHIC;
+        }
+        if (type == DOUBLE) {
+            return StringComparators.NUMERIC;
+        }
+        if (type == BIGINT) {
+            return StringComparators.NUMERIC;
+        }
+        if (type == REAL) {
+            return StringComparators.NUMERIC;
+        }
+        return null;
     }
 }
