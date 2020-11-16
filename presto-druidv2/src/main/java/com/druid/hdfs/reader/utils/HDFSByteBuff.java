@@ -13,7 +13,7 @@
  */
 package com.druid.hdfs.reader.utils;
 
-import org.apache.hadoop.fs.FSDataInputStream;
+import com.druid.hdfs.reader.DataInputSource;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
@@ -23,7 +23,7 @@ import java.nio.InvalidMarkException;
 public class HDFSByteBuff
         extends ByteBuff
 {
-    private FSDataInputStream is;
+    private DataInputSource dataInputSource;
     private final int offset;
 
     private int mark = -1;
@@ -31,9 +31,9 @@ public class HDFSByteBuff
     private int limit;
     private int capacity;
 
-    public HDFSByteBuff(FSDataInputStream is, int offset, int length)
+    public HDFSByteBuff(DataInputSource dataInputSource, int offset, int length)
     {
-        this.is = is;
+        this.dataInputSource = dataInputSource;
         this.mark = -1;
         this.position = 0;
         this.limit = length;
@@ -41,9 +41,9 @@ public class HDFSByteBuff
         this.offset = offset;
     }
 
-    public HDFSByteBuff(FSDataInputStream is, int mark, int pos, int lim, int cap, int off)
+    public HDFSByteBuff(DataInputSource dataInputSource, int mark, int pos, int lim, int cap, int off)
     {
-        this.is = is;
+        this.dataInputSource = dataInputSource;
         this.mark = mark;
         this.position = pos;
         this.limit = lim;
@@ -140,13 +140,14 @@ public class HDFSByteBuff
 
     @Override public HDFSByteBuff slice()
     {
-        return new HDFSByteBuff(is, -1, 0, this.remaining(), this.remaining(),
+        return new HDFSByteBuff(dataInputSource, -1, 0, this.remaining(), this.remaining(),
                 this.position() + offset);
     }
 
     @Override public HDFSByteBuff duplicate()
     {
-        return new HDFSByteBuff(is, mark, this.position(), this.limit(), this.capacity(), offset);
+        return new HDFSByteBuff(dataInputSource, mark, this.position(), this.limit(),
+                this.capacity(), offset);
     }
 
     @Override public byte get() throws IOException
@@ -186,7 +187,7 @@ public class HDFSByteBuff
         if (length > remaining()) {
             throw new BufferUnderflowException();
         }
-        is.readFully(ix(position()), dst, offset, length);
+        dataInputSource.readFully(ix(position()), dst, offset, length);
         position(position() + length);
     }
 
@@ -197,7 +198,7 @@ public class HDFSByteBuff
         //    inDup.position(sourceOffset);
         //    inDup.get(dst, offset, length);
         // TODO
-        is.readFully(ix(sourceOffset), dst, offset, length);
+        dataInputSource.readFully(ix(sourceOffset), dst, offset, length);
     }
 
     @Override public void get(byte[] dst) throws IOException
@@ -351,12 +352,12 @@ public class HDFSByteBuff
         if (!(obj instanceof HDFSByteBuff)) {
             return false;
         }
-        return this.is.equals(((HDFSByteBuff) obj).is);
+        return this.dataInputSource.equals(((HDFSByteBuff) obj).dataInputSource);
     }
 
     @Override public int hashCode()
     {
-        return this.is.hashCode();
+        return this.dataInputSource.hashCode();
     }
 
     final int nextGetIndex()
@@ -393,21 +394,21 @@ public class HDFSByteBuff
     private byte readByte(long position) throws IOException
     {
         byte[] buffer = new byte[1];
-        is.readFully(position, buffer);
+        dataInputSource.readFully(position, buffer);
         return buffer[0];
     }
 
     private int readInt(long position) throws IOException
     {
         byte[] buffer = new byte[4];
-        is.readFully(position, buffer);
+        dataInputSource.readFully(position, buffer);
         return makeInt(buffer[0], buffer[1], buffer[2], buffer[3]);
     }
 
     private long readLong(long position) throws IOException
     {
         byte[] buffer = new byte[8];
-        is.readFully(position, buffer);
+        dataInputSource.readFully(position, buffer);
         return makeLong(buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6],
                 buffer[7]);
     }

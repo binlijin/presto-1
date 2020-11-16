@@ -30,7 +30,6 @@ import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.common.utils.SerializerUtils;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
@@ -71,6 +70,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -180,10 +180,10 @@ public class HDFSIndexIO
         {
             log.debug("Mapping v9 index[%s]", inDir);
             long startTime = System.currentTimeMillis();
-            final int theVersion = HDFSVersion.getVersionFromDir(fileSystem, inDir);
-            if (theVersion != V9_VERSION) {
-                throw new IAE("Expected version[9], got[%d]", theVersion);
-            }
+//            final int theVersion = HDFSVersion.getVersionFromDir(fileSystem, inDir);
+//            if (theVersion != V9_VERSION) {
+//                throw new IAE("Expected version[9], got[%d]", theVersion);
+//            }
 
             HDFSSmooshedFileMapper smooshedFiles = HDFSSmooshedFileMapper.load(fileSystem, inDir);
 
@@ -194,6 +194,7 @@ public class HDFSIndexIO
             FSDataInputStream is = fileSystem.open(smooshFile);
             int fileSize = indexMetadata.getEndOffset() - indexMetadata.getStartOffset();
             byte[] buffer = new byte[fileSize];
+            // 直接一次读取index.drd的数据
             is.readFully(indexMetadata.getStartOffset(), buffer);
             ByteBuffer indexBuffer = ByteBuffer.wrap(buffer);
 
@@ -242,9 +243,11 @@ public class HDFSIndexIO
             if (!fileName.equals(metaDataDrdfileName)) {
                 smooshFile = new Path(inDir, metaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                fileName = metaDataDrdfileName;
             }
             byte[] metadatabuffer =
                     new byte[metadataDrd.getEndOffset() - metadataDrd.getStartOffset()];
+            // 直接一次读取metadata.drd的数据
             is.readFully(metadataDrd.getStartOffset(), metadatabuffer);
             ByteBuffer metadataBB = ByteBuffer.wrap(metadatabuffer);
 
@@ -267,7 +270,10 @@ public class HDFSIndexIO
             }
             //log.debug("metadata = %s", metadata);
 
+            AtomicLong readTimeNanos = new AtomicLong(0);
             Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
+            HdfsDataInputSource hdfsDataInputSource =
+                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
 
             List<String> selectCs = null;
             if (selColumns == null || selColumns.isEmpty()) {
@@ -288,12 +294,14 @@ public class HDFSIndexIO
                 if (!fileName.equals(columnMetaDataDrdfileName)) {
                     smooshFile = new Path(inDir, columnMetaDataDrdfileName);
                     is = fileSystem.open(smooshFile);
+                    fileName = columnMetaDataDrdfileName;
+                    hdfsDataInputSource = new HdfsDataInputSource(smooshFile, is, readTimeNanos);
                 }
 
                 int columnSize =
                         columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset();
                 HDFSByteBuff columnByteBuff =
-                        new HDFSByteBuff(is, columnMetaDataDrd.getStartOffset(), columnSize);
+                        new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(), columnSize);
 
                 //        byte[] columnDataBuffer = new byte[columnSize];
                 //        is.readFully(columnMetaDataDrd.getStartOffset(), columnDataBuffer);
@@ -332,9 +340,12 @@ public class HDFSIndexIO
             if (timeMetaDataDrdfileName.equals(fileName)) {
                 smooshFile = new Path(inDir, timeMetaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                fileName = timeMetaDataDrdfileName;
+                hdfsDataInputSource = new HdfsDataInputSource(smooshFile, is, readTimeNanos);
             }
-            HDFSByteBuff timeByteBuff = new HDFSByteBuff(is, timeMetadata.getStartOffset(),
-                    timeMetadata.getEndOffset() - timeMetadata.getStartOffset());
+            HDFSByteBuff timeByteBuff =
+                    new HDFSByteBuff(hdfsDataInputSource, timeMetadata.getStartOffset(),
+                            timeMetadata.getEndOffset() - timeMetadata.getStartOffset());
 
             //      byte[] columnDataBuffer = new byte[timeMetadata.getEndOffset() - timeMetadata.getStartOffset()];
             //      is.readFully(timeMetadata.getStartOffset(), columnDataBuffer);
@@ -398,8 +409,12 @@ public class HDFSIndexIO
                 }
             }
 
-            HDFSByteBuff columnByteBuff = new HDFSByteBuff(is, columnMetaDataDrd.getStartOffset(),
-                    columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
+            AtomicLong readTimeNanos = new AtomicLong(0);
+            HdfsDataInputSource hdfsDataInputSource =
+                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            HDFSByteBuff columnByteBuff =
+                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                            columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
                 log.debug(" " + columnHolder2.toString());
@@ -446,8 +461,12 @@ public class HDFSIndexIO
                 }
             }
 
-            HDFSByteBuff columnByteBuff = new HDFSByteBuff(is, columnMetaDataDrd.getStartOffset(),
-                    columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
+            AtomicLong readTimeNanos = new AtomicLong(0);
+            HdfsDataInputSource hdfsDataInputSource =
+                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            HDFSByteBuff columnByteBuff =
+                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                            columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
                 log.debug(" " + columnHolder2.toString());
@@ -501,8 +520,12 @@ public class HDFSIndexIO
                 }
             }
 
-            HDFSByteBuff columnByteBuff = new HDFSByteBuff(is, columnMetaDataDrd.getStartOffset(),
-                    columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
+            AtomicLong readTimeNanos = new AtomicLong(0);
+            HdfsDataInputSource hdfsDataInputSource =
+                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            HDFSByteBuff columnByteBuff =
+                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                            columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
                 log.debug(" " + columnHolder2.toString());

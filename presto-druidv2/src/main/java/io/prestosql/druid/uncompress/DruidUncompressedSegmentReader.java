@@ -83,7 +83,7 @@ public class DruidUncompressedSegmentReader
                     new V9UncompressedSegmentIndexSource(fileSystem, segmentPath);
             queryableIndex = uncompressedSegmentIndexSource.loadIndex(columns);
 
-            ImmutableBitmap filterBitmap = analyzeFilter(Filters.toFilter(filter));
+            ImmutableBitmap filterBitmap = analyzeFilter(Filters.toFilter(this.filter));
             if (filterBitmap != null) {
                 totalRowCount =
                         Long.min(filterBitmap.size(), Long.min(queryableIndex.getNumRows(), limit));
@@ -98,7 +98,7 @@ public class DruidUncompressedSegmentReader
             if (LOG.isDebugEnabled()) {
                 LOG.debug(
                         "DruidSegmentReader totalRowCount = " + totalRowCount + ", limit = " + limit
-                                + ", filter = " + filter);
+                                + ", filter = " + this.filter);
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
