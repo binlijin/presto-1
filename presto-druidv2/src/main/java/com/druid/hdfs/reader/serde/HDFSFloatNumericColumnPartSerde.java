@@ -11,38 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.data.HDFSCompressedColumnarFloatsSupplier;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.column.ColumnBuilder;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ValueType;
-import org.apache.druid.segment.serde.LongNumericColumnPartSerde;
+import org.apache.druid.segment.serde.FloatNumericColumnPartSerde;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
 
-public class HDFSLongNumericColumnPartSerde
+public class HDFSFloatNumericColumnPartSerde
 {
-    private LongNumericColumnPartSerde longPart;
+    private FloatNumericColumnPartSerde floatPart;
     private final ByteOrder byteOrder;
 
-    public HDFSLongNumericColumnPartSerde(LongNumericColumnPartSerde longPart)
+    public HDFSFloatNumericColumnPartSerde(FloatNumericColumnPartSerde floatPart)
     {
-        this.longPart = longPart;
-        this.byteOrder = longPart.getByteOrder();
+        this.floatPart = floatPart;
+        this.byteOrder = floatPart.getByteOrder();
     }
 
-    void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
+    public void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
             throws IOException
     {
-        final HDFSCompressedColumnarLongsSupplier column =
-                HDFSCompressedColumnarLongsSupplier.fromByteBuffer(buffer, byteOrder);
-        HDFSLongNumericColumnSupplier columnSupplier = new HDFSLongNumericColumnSupplier(
+        final HDFSCompressedColumnarFloatsSupplier column =
+                HDFSCompressedColumnarFloatsSupplier.fromByteBuffer(buffer, byteOrder);
+        HDFSFloatNumericColumnSupplier columnSupplier = new HDFSFloatNumericColumnSupplier(
                 column,
                 IndexIO.LEGACY_FACTORY.getBitmapFactory().makeEmptyImmutableBitmap());
-        builder.setType(ValueType.LONG)
+        builder.setType(ValueType.FLOAT)
                 .setHasMultipleValues(false)
                 .setNumericColumnSupplier(columnSupplier);
     }

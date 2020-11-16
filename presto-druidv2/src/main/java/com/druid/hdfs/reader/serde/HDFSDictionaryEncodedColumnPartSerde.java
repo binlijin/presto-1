@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.data.HDFSCompressedVSizeColumnarIntsSupplier;
+import com.druid.hdfs.reader.data.HDFSGenericIndexed;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.IAE;
@@ -44,7 +46,7 @@ public class HDFSDictionaryEncodedColumnPartSerde
         this.bitmapSerdeFactory = dictPart.getBitmapSerdeFactory();
     }
 
-    void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
+    public void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
             throws IOException
     {
         int rVersion = buffer.get();

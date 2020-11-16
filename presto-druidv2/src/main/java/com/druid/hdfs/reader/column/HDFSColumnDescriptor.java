@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.column;
 
+import com.druid.hdfs.reader.serde.HDFSDictionaryEncodedColumnPartSerde;
+import com.druid.hdfs.reader.serde.HDFSDoubleNumericColumnPartSerde;
+import com.druid.hdfs.reader.serde.HDFSFloatNumericColumnPartSerde;
+import com.druid.hdfs.reader.serde.HDFSLongNumericColumnPartSerde;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import org.apache.druid.java.util.common.logger.Logger;

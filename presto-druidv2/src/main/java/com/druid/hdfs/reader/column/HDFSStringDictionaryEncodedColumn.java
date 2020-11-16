@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.column;
 
+import com.druid.hdfs.reader.data.HDFSCachingIndexed;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import org.apache.druid.java.util.common.guava.CloseQuietly;

@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.data.HDFSCompressedColumnarLongsSupplier;
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.segment.column.DoublesColumn;
+import org.apache.druid.segment.column.LongsColumn;
 import org.apache.druid.segment.column.NumericColumn;
-import org.apache.druid.segment.data.ColumnarDoubles;
 
-public class HDFSDoubleNumericColumnSupplier
+public class HDFSLongNumericColumnSupplier
         implements Supplier<NumericColumn>
 {
-    private final Supplier<ColumnarDoubles> column;
+    private final HDFSCompressedColumnarLongsSupplier column;
     private final ImmutableBitmap nullValueBitmap;
 
-    public HDFSDoubleNumericColumnSupplier(Supplier<ColumnarDoubles> column,
+    public HDFSLongNumericColumnSupplier(HDFSCompressedColumnarLongsSupplier column,
             ImmutableBitmap nullValueBitmap)
     {
         this.column = column;
@@ -34,6 +34,6 @@ public class HDFSDoubleNumericColumnSupplier
 
     @Override public NumericColumn get()
     {
-        return DoublesColumn.create(column.get(), nullValueBitmap);
+        return LongsColumn.create(column.get(), nullValueBitmap);
     }
 }

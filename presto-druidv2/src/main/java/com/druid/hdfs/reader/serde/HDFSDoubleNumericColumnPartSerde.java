@@ -11,38 +11,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.druid.hdfs.reader.data;
+package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.data.HDFSCompressedColumnarDoublesSuppliers;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
+import com.google.common.base.Supplier;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.column.ColumnBuilder;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ValueType;
-import org.apache.druid.segment.serde.FloatNumericColumnPartSerde;
+import org.apache.druid.segment.data.ColumnarDoubles;
+import org.apache.druid.segment.serde.DoubleNumericColumnPartSerde;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
 
-public class HDFSFloatNumericColumnPartSerde
+public class HDFSDoubleNumericColumnPartSerde
 {
-    private FloatNumericColumnPartSerde floatPart;
+    private DoubleNumericColumnPartSerde doublePart;
     private final ByteOrder byteOrder;
 
-    public HDFSFloatNumericColumnPartSerde(FloatNumericColumnPartSerde floatPart)
+    public HDFSDoubleNumericColumnPartSerde(DoubleNumericColumnPartSerde doublePart)
     {
-        this.floatPart = floatPart;
-        this.byteOrder = floatPart.getByteOrder();
+        this.doublePart = doublePart;
+        this.byteOrder = doublePart.getByteOrder();
     }
 
-    void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
+    public void read(HDFSByteBuff buffer, ColumnBuilder builder, ColumnConfig columnConfig)
             throws IOException
     {
-        final HDFSCompressedColumnarFloatsSupplier column =
-                HDFSCompressedColumnarFloatsSupplier.fromByteBuffer(buffer, byteOrder);
-        HDFSFloatNumericColumnSupplier columnSupplier = new HDFSFloatNumericColumnSupplier(
+        final Supplier<ColumnarDoubles> column =
+                HDFSCompressedColumnarDoublesSuppliers.fromByteBuffer(buffer, byteOrder);
+        HDFSDoubleNumericColumnSupplier columnSupplier = new HDFSDoubleNumericColumnSupplier(
                 column,
                 IndexIO.LEGACY_FACTORY.getBitmapFactory().makeEmptyImmutableBitmap());
-        builder.setType(ValueType.FLOAT)
+        builder.setType(ValueType.DOUBLE)
                 .setHasMultipleValues(false)
                 .setNumericColumnSupplier(columnSupplier);
     }

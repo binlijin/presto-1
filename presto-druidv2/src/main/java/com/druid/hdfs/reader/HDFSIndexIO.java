@@ -13,8 +13,8 @@
  */
 package com.druid.hdfs.reader;
 
-import com.druid.hdfs.reader.data.HDFSColumnDescriptor;
-import com.druid.hdfs.reader.data.HDFSStringDictionaryEncodedColumn;
+import com.druid.hdfs.reader.column.HDFSColumnDescriptor;
+import com.druid.hdfs.reader.column.HDFSStringDictionaryEncodedColumn;
 import com.druid.hdfs.reader.utils.HDFSByteBuff;
 import com.druid.hdfs.reader.utils.HDFSSerializerUtils;
 import com.fasterxml.jackson.core.JsonParseException;
