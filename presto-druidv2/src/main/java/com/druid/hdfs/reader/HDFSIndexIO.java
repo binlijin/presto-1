@@ -376,7 +376,8 @@ public class HDFSIndexIO
                     columns,
                     smooshedFiles,
                     metadata,
-                    lazy);
+                    lazy,
+                    readTimeNanos);
 
             log.debug("Mapped v9 index[%s] in %,d millis", inDir,
                     System.currentTimeMillis() - startTime);

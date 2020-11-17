@@ -13,6 +13,7 @@
  */
 package io.prestosql.druid.uncompress;
 
+import com.druid.hdfs.reader.HDFSSimpleQueryableIndex;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.druid.DruidColumnHandle;
@@ -134,6 +135,14 @@ public class DruidUncompressedSegmentReader
     @Override public Block readBlock(Type type, String columnName)
     {
         return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
+    }
+
+    public long getReadTimeNanos()
+    {
+        LOG.debug("ReadTimeMs = "
+                + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
+                + " ms.");
+        return ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos();
     }
 
     public ImmutableBitmap analyzeFilter(@Nullable final Filter filter)

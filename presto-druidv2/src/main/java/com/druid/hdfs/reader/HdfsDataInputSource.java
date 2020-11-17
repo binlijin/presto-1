@@ -34,6 +34,7 @@ public class HdfsDataInputSource
     {
         this.path = path;
         this.inputStream = inputStream;
+        this.readTimeNanos = readTimeNanos;
     }
 
     @Override
@@ -45,7 +46,7 @@ public class HdfsDataInputSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
@@ -60,7 +61,10 @@ public class HdfsDataInputSource
     {
         long start = System.nanoTime();
         readInternal(position, buffer, bufferOffset, bufferLength);
-
+        System.out.println("read buffer bufferLength " + bufferLength);
+        if (bufferLength < 10) {
+            new IOException("bufferLength = " + bufferLength).printStackTrace();
+        }
         readTimeNanos.addAndGet(System.nanoTime() - start);
     }
 
@@ -81,12 +85,19 @@ public class HdfsDataInputSource
     }
 
     @Override
-    public boolean equals(Object object)
+    public boolean equals(Object obj)
     {
-        if (!(object instanceof HdfsDataInputSource)) {
+        if (obj == this) {
+            return true;
+        }
+
+        if (obj instanceof HdfsDataInputSource) {
+            HdfsDataInputSource other = (HdfsDataInputSource) obj;
+            return other.path.equals(this.path);
+        }
+        else {
             return false;
         }
-        return ((HdfsDataInputSource) object).path.equals(this.path);
     }
 
     @Override

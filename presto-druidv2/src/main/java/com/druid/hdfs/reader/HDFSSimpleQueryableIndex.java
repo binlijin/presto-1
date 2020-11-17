@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public class HDFSSimpleQueryableIndex
     private final HDFSSmooshedFileMapper fileMapper;
     @Nullable private final Metadata metadata;
     private final Supplier<Map<String, DimensionHandler>> dimensionHandlers;
+    private AtomicLong readTimeNanos;
 
     public HDFSSimpleQueryableIndex(
             Interval dataInterval,
@@ -58,7 +60,8 @@ public class HDFSSimpleQueryableIndex
             Map<String, Supplier<ColumnHolder>> columns,
             HDFSSmooshedFileMapper fileMapper,
             @Nullable Metadata metadata,
-            boolean lazy)
+            boolean lazy,
+            AtomicLong readTimeNanos)
     {
         requireNonNull(columns.get(ColumnHolder.TIME_COLUMN_NAME));
         this.dataInterval = requireNonNull(dataInterval, "dataInterval");
@@ -74,6 +77,7 @@ public class HDFSSimpleQueryableIndex
         this.columns = columns;
         this.fileMapper = fileMapper;
         this.metadata = metadata;
+        this.readTimeNanos = readTimeNanos;
 
         if (lazy) {
             this.dimensionHandlers = Suppliers.memoize(() -> {
@@ -155,5 +159,10 @@ public class HDFSSimpleQueryableIndex
     @Override public Map<String, DimensionHandler> getDimensionHandlers()
     {
         return dimensionHandlers.get();
+    }
+
+    public long getReadTimeNanos()
+    {
+        return readTimeNanos.get();
     }
 }

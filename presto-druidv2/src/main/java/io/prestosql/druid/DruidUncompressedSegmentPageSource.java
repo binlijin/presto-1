@@ -53,7 +53,7 @@ public class DruidUncompressedSegmentPageSource
 
     @Override public long getReadTimeNanos()
     {
-        return 0;
+        return segmentReader.getReadTimeNanos();
     }
 
     @Override public boolean isFinished()
