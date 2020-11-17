@@ -191,6 +191,7 @@ public class HDFSIndexIO
             //00000.smoosh
             String fileName = smooshedFiles.getFileNum(indexMetadata.getFileNum());
             Path smooshFile = new Path(inDir, fileName);
+            long hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
             FSDataInputStream is = fileSystem.open(smooshFile);
             int fileSize = indexMetadata.getEndOffset() - indexMetadata.getStartOffset();
             byte[] buffer = new byte[fileSize];
@@ -243,6 +244,7 @@ public class HDFSIndexIO
             if (!fileName.equals(metaDataDrdfileName)) {
                 smooshFile = new Path(inDir, metaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                 fileName = metaDataDrdfileName;
             }
             byte[] metadatabuffer =
@@ -272,8 +274,8 @@ public class HDFSIndexIO
 
             AtomicLong readTimeNanos = new AtomicLong(0);
             Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
-            HdfsDataInputSource hdfsDataInputSource =
-                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            HdfsBufferDataInputSource hdfsBufferDataInputSource =
+                    new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize, readTimeNanos);
 
             List<String> selectCs = null;
             if (selColumns == null || selColumns.isEmpty()) {
@@ -294,14 +296,17 @@ public class HDFSIndexIO
                 if (!fileName.equals(columnMetaDataDrdfileName)) {
                     smooshFile = new Path(inDir, columnMetaDataDrdfileName);
                     is = fileSystem.open(smooshFile);
+                    hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                     fileName = columnMetaDataDrdfileName;
-                    hdfsDataInputSource = new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+                    hdfsBufferDataInputSource =
+                            new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize,
+                                    readTimeNanos);
                 }
 
                 int columnSize =
                         columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset();
                 HDFSByteBuff columnByteBuff =
-                        new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(), columnSize);
+                        new HDFSByteBuff(hdfsBufferDataInputSource, columnMetaDataDrd.getStartOffset(), columnSize);
 
                 //        byte[] columnDataBuffer = new byte[columnSize];
                 //        is.readFully(columnMetaDataDrd.getStartOffset(), columnDataBuffer);
@@ -340,11 +345,13 @@ public class HDFSIndexIO
             if (timeMetaDataDrdfileName.equals(fileName)) {
                 smooshFile = new Path(inDir, timeMetaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                 fileName = timeMetaDataDrdfileName;
-                hdfsDataInputSource = new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+                hdfsBufferDataInputSource =
+                        new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize, readTimeNanos);
             }
             HDFSByteBuff timeByteBuff =
-                    new HDFSByteBuff(hdfsDataInputSource, timeMetadata.getStartOffset(),
+                    new HDFSByteBuff(hdfsBufferDataInputSource, timeMetadata.getStartOffset(),
                             timeMetadata.getEndOffset() - timeMetadata.getStartOffset());
 
             //      byte[] columnDataBuffer = new byte[timeMetadata.getEndOffset() - timeMetadata.getStartOffset()];
@@ -411,10 +418,11 @@ public class HDFSIndexIO
             }
 
             AtomicLong readTimeNanos = new AtomicLong(0);
-            HdfsDataInputSource hdfsDataInputSource =
-                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            long hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
+            HdfsBufferDataInputSource hdfsBufferDataInputSource =
+                    new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize, readTimeNanos);
             HDFSByteBuff columnByteBuff =
-                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                    new HDFSByteBuff(hdfsBufferDataInputSource, columnMetaDataDrd.getStartOffset(),
                             columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
@@ -463,10 +471,11 @@ public class HDFSIndexIO
             }
 
             AtomicLong readTimeNanos = new AtomicLong(0);
-            HdfsDataInputSource hdfsDataInputSource =
-                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            long hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
+            HdfsBufferDataInputSource hdfsBufferDataInputSource =
+                    new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize, readTimeNanos);
             HDFSByteBuff columnByteBuff =
-                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                    new HDFSByteBuff(hdfsBufferDataInputSource, columnMetaDataDrd.getStartOffset(),
                             columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
@@ -522,10 +531,11 @@ public class HDFSIndexIO
             }
 
             AtomicLong readTimeNanos = new AtomicLong(0);
-            HdfsDataInputSource hdfsDataInputSource =
-                    new HdfsDataInputSource(smooshFile, is, readTimeNanos);
+            long hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
+            HdfsBufferDataInputSource hdfsBufferDataInputSource =
+                    new HdfsBufferDataInputSource(smooshFile, is, hdfsFileSize, readTimeNanos);
             HDFSByteBuff columnByteBuff =
-                    new HDFSByteBuff(hdfsDataInputSource, columnMetaDataDrd.getStartOffset(),
+                    new HDFSByteBuff(hdfsBufferDataInputSource, columnMetaDataDrd.getStartOffset(),
                             columnMetaDataDrd.getEndOffset() - columnMetaDataDrd.getStartOffset());
             ColumnHolder columnHolder2 = createColumnHolder(columnByteBuff);
             if (log.isDebugEnabled()) {
