@@ -139,9 +139,11 @@ public class DruidUncompressedSegmentReader
 
     public long getReadTimeNanos()
     {
-        LOG.debug("ReadTimeMs = "
-                + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
-                + " ms.");
+//        if (LOG.isDebugEnabled()) {
+//            LOG.debug("ReadTimeMs = "
+//                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
+//                    + " ms.");
+//        }
         return ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos();
     }
 
