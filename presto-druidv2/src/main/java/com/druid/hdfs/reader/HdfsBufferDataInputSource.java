@@ -80,7 +80,7 @@ public class HdfsBufferDataInputSource
             return;
         }
         long start = System.nanoTime();
-        if (bufferLength >= Constants.BUFFER_SIZE || ((size - position) <= Constants.BUFFER_SIZE)) {
+        if (bufferLength >= Constants.BUFFER_SIZE) {
             readInternal(position, buffer, bufferOffset, bufferLength);
             startPosition = -1L;
             //System.out.println("Direct read " + bufferLength + " bytes from hdfs.");
@@ -88,7 +88,11 @@ public class HdfsBufferDataInputSource
         else {
             //Arrays.fill(dataBuffer, (byte) 0);
             this.startPosition = position;
-            readInternal(position, dataBuffer, 0, Constants.BUFFER_SIZE);
+            int length = (int) Math.min((size - position), Constants.BUFFER_SIZE);
+            if (length < Constants.BUFFER_SIZE) {
+                Arrays.fill(dataBuffer, (byte) 0);
+            }
+            readInternal(position, dataBuffer, 0, length);
             System.arraycopy(dataBuffer, 0, buffer, bufferOffset, bufferLength);
 //            System.out.println(
 //                    "Read " + Constants.BUFFER_SIZE + " bytes from hdfs and cache, and copy "
