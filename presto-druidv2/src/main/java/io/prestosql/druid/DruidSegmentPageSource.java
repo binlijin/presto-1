@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
 
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -97,6 +98,11 @@ public class DruidSegmentPageSource
     public void close()
     {
         closed = true;
+        try {
+            segmentReader.close();
+        }
+        catch (IOException ioe) {
+        }
         // TODO: close all column reader and value selectors
     }
 

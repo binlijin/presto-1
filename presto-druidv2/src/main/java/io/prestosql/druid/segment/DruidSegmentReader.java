@@ -180,4 +180,10 @@ public class DruidSegmentReader
     {
         return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
     }
+
+    @Override
+    public void close() throws IOException
+    {
+        //TODO
+    }
 }

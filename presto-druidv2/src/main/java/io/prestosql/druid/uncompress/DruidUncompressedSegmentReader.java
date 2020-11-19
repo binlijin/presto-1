@@ -201,4 +201,10 @@ public class DruidUncompressedSegmentReader
         }
         return filterBitmap;
     }
+
+    @Override
+    public void close() throws IOException
+    {
+        //TODO
+    }
 }

@@ -16,7 +16,10 @@ package io.prestosql.druid.segment;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 
+import java.io.Closeable;
+
 public interface SegmentReader
+        extends Closeable
 {
     int nextBatch();
 
