@@ -56,12 +56,15 @@ public class DruidPageSourceProvider
 
     private final DruidClient druidClient;
     private final Configuration hadoopConfiguration;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public DruidPageSourceProvider(DruidClient druidClient, DruidConfig config)
+    public DruidPageSourceProvider(DruidClient druidClient, DruidConfig config,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.druidClient = requireNonNull(druidClient, "druid client is null");
         this.hadoopConfiguration = config.readHadoopConfiguration();
+        this.hdfsEnvironment = hdfsEnvironment;
     }
 
     @Override
@@ -98,7 +101,10 @@ public class DruidPageSourceProvider
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
         try {
             Path segmentPath = new Path(segmentInfo.getDeepStoragePath());
-            FileSystem fileSystem = segmentPath.getFileSystem(hadoopConfiguration);
+            HdfsContext hdfsContext = new HdfsContext(session, druidTableHandle.getSchemaName(),
+                    druidTableHandle.getTableName());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, segmentPath);
+            //FileSystem fileSystem = segmentPath.getFileSystem(hadoopConfiguration);
             if (fileSystem.isDirectory(segmentPath)) {
                 // TODO
                 DruidUncompressedSegmentReader reader =

@@ -16,6 +16,7 @@ package io.prestosql.druid;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.cache.CachingModule;
 import io.prestosql.druid.authentication.DruidAuthenticationModule;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -52,6 +53,7 @@ public class DruidConnectorFactory
                     new JsonModule(),
                     new DruidModule(),
                     new DruidAuthenticationModule(),
+                    new CachingModule(),
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         //binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
