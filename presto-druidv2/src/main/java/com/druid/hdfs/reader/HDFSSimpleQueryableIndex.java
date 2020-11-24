@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.segment.AbstractIndex;
 import org.apache.druid.segment.DimensionHandler;
@@ -43,6 +44,7 @@ public class HDFSSimpleQueryableIndex
         extends AbstractIndex
         implements QueryableIndex
 {
+    private static final Logger LOG = Logger.get(HDFSSimpleQueryableIndex.class);
     private final Interval dataInterval;
     private final List<String> columnNames;
     private final Indexed<String> availableDimensions;
@@ -148,6 +150,14 @@ public class HDFSSimpleQueryableIndex
     {
         if (fileMapper != null) {
             fileMapper.close();
+        }
+        for (Map.Entry<String, Supplier<ColumnHolder>> entry : columns.entrySet()) {
+            try {
+                entry.getValue().get().getColumn().close();
+            }
+            catch (Exception e) {
+                LOG.warn("close columnHolder error", e);
+            }
         }
     }
 

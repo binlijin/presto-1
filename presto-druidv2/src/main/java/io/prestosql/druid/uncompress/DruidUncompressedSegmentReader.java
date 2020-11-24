@@ -206,5 +206,6 @@ public class DruidUncompressedSegmentReader
     public void close() throws IOException
     {
         //TODO
+        queryableIndex.close();
     }
 }
