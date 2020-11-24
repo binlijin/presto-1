@@ -27,7 +27,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 import java.util.function.BiFunction;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -75,16 +74,8 @@ public class DruidCachingHdfsConfiguration
             }
         });
         Configuration defaultConfig = druidConfig.readHadoopConfiguration();
-
-        copy(defaultConfig, config);
+        ConfigurationUtils.copy(defaultConfig, config);
         return config;
-    }
-
-    public static void copy(Configuration from, Configuration to)
-    {
-        for (Map.Entry<String, String> entry : from) {
-            to.set(entry.getKey(), entry.getValue());
-        }
     }
 
     private static class CachingJobConf

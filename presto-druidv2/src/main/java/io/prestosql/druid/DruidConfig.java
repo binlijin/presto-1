@@ -109,7 +109,7 @@ public class DruidConfig
 
     public Configuration readHadoopConfiguration()
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = ConfigurationUtils.getInitialConfiguration();
         if (hadoopConfiguration.isEmpty()) {
             configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
             configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
@@ -121,6 +121,7 @@ public class DruidConfig
                 configuration.set(entry.getKey(), entry.getValue());
             }
         }
+        //configuration.setClassLoader(Thread.currentThread().getContextClassLoader());
         return configuration;
     }
 

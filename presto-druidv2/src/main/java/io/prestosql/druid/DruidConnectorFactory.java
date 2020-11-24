@@ -13,66 +13,69 @@
  */
 package io.prestosql.druid;
 
-import com.google.inject.Injector;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
-import io.prestosql.cache.CachingModule;
-import io.prestosql.druid.authentication.DruidAuthenticationModule;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.type.TypeManager;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class DruidConnectorFactory
         implements ConnectorFactory
 {
-    @Override
-    public String getName()
+    private final String name;
+    private final Class<? extends Module> module;
+
+    public DruidConnectorFactory(String name)
     {
-        return "druidv2";
+        this(name, EmptyModule.class);
+    }
+
+    public DruidConnectorFactory(String name, Class<? extends Module> module)
+    {
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public String getName()
     {
-        return new DruidHandleResolver();
+        return name;
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(config, "config is null");
+        ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new DruidModule(),
-                    new DruidAuthenticationModule(),
-                    new CachingModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        //binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
-                        //binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
-                        //binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
-                        //binder.bind(DeterminismEvaluator.class).toInstance(context.getRowExpressionService().getDeterminismEvaluator());
-                    });
-
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-
-            return injector.getInstance(DruidConnector.class);
+            Object moduleInstance = classLoader.loadClass(module.getName()).getConstructor().newInstance();
+            Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
+            return (Connector) classLoader.loadClass(InternalDruidConnectorFactory.class.getName())
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, moduleClass)
+                    .invoke(null, catalogName, config, context, moduleInstance);
         }
-        catch (Exception e) {
-            throwIfUnchecked(e);
+        catch (InvocationTargetException e) {
+            Throwable targetException = e.getTargetException();
+            throwIfUnchecked(targetException);
+            throw new RuntimeException(targetException);
+        }
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static class EmptyModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
     }
 }

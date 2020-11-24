@@ -18,6 +18,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.prestosql.druid.ingestion.DruidPageSinkProvider;
 import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -26,9 +27,8 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
-import javax.inject.Inject;
-
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.druid.DruidTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
@@ -45,7 +45,7 @@ public class DruidConnector
     private final DruidPageSinkProvider pageSinkProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
 
-    @Inject
+    //@Inject
     public DruidConnector(
             LifeCycleManager lifeCycleManager,
             DruidMetadata metadata,
@@ -60,6 +60,12 @@ public class DruidConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvide is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(druidSessionProperties, "sessionProperties is null").getSessionProperties());
+    }
+
+    @Override
+    public Optional<ConnectorHandleResolver> getHandleResolver()
+    {
+        return Optional.of(new DruidHandleResolver());
     }
 
     @Override

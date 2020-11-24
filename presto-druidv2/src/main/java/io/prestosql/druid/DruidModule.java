@@ -32,7 +32,7 @@ public class DruidModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(DruidConfig.class);
-        binder.bind(DruidConnector.class).in(Scopes.SINGLETON);
+        //binder.bind(DruidConnector.class).in(Scopes.SINGLETON);
         binder.bind(DruidMetadata.class).in(Scopes.SINGLETON);
         binder.bind(DruidHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(DruidClient.class).in(Scopes.SINGLETON);
