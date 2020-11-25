@@ -13,17 +13,32 @@
  */
 package io.prestosql.cache;
 
+import io.prestosql.cache.alluxio.AlluxioCacheConfig;
+import io.prestosql.cache.alluxio.AlluxioCachingFileSystem;
 import io.prestosql.cache.filemerge.FileMergeCachingFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.cache.CacheType.ALLUXIO;
 
 public class CacheFactory
 {
+    private final CacheConfig cacheConfig;
+    private final AlluxioCacheConfig alluxioCacheConfig;
+
+    @Inject
+    public CacheFactory(CacheConfig cacheConfig, AlluxioCacheConfig alluxioCacheConfig)
+    {
+        this.cacheConfig = cacheConfig;
+        this.alluxioCacheConfig = alluxioCacheConfig;
+    }
+
     public FileSystem createCachingFileSystem(
             Configuration factoryConfig,
             URI factoryUri,
@@ -48,12 +63,28 @@ public class CacheFactory
                         cacheManager,
                         fileSystem,
                         validationEnabled);
-//            case ALLUXIO:
-//                ExtendedFileSystem cachingFileSystem = new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
-//                cachingFileSystem.initialize(factoryUri, factoryConfig);
-//                return cachingFileSystem;
+            case ALLUXIO:
+                AlluxioCachingFileSystem cachingFileSystem =
+                        new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
+                updateConfiguration(factoryConfig);
+                cachingFileSystem.initialize(factoryUri, factoryConfig);
+                return cachingFileSystem;
             default:
                 throw new IllegalArgumentException("Invalid CacheType: " + cacheType.name());
+        }
+    }
+
+    public void updateConfiguration(Configuration configuration)
+    {
+        if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
+            configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
+            configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
+            configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
+            configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
+            configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
+            configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
+            configuration.set("alluxio.conf.validation.enabled", String.valueOf(alluxioCacheConfig.isConfigValidationEnabled()));
         }
     }
 }

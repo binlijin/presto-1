@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.prestosql.cache.alluxio.AlluxioCacheConfig;
 import io.prestosql.cache.filemerge.FileMergeCacheConfig;
 import io.prestosql.cache.filemerge.FileMergeCacheManager;
 //import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -38,7 +39,7 @@ public class CachingModule
         newExporter(binder).export(CacheStats.class).withGeneratedName();
         configBinder(binder).bindConfig(CacheConfig.class);
         configBinder(binder).bindConfig(FileMergeCacheConfig.class);
-        //configBinder(binder).bindConfig(AlluxioCacheConfig.class);
+        configBinder(binder).bindConfig(AlluxioCacheConfig.class);
         //newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(AlluxioCachingConfigurationProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(CacheFactory.class).in(Scopes.SINGLETON);
