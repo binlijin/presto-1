@@ -20,7 +20,7 @@ import org.apache.hadoop.fs.FileSystem;
 import java.io.IOException;
 import java.net.URI;
 
-import static alluxio.shaded.client.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CacheFactory
 {

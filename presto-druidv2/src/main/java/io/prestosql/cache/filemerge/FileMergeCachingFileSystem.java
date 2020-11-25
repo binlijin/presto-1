@@ -14,12 +14,16 @@
 package io.prestosql.cache.filemerge;
 
 import io.prestosql.cache.CacheManager;
+import io.prestosql.cache.CacheQuota;
 import io.prestosql.cache.CachingFileSystem;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 //import org.apache.hadoop.fs.FSDataInputStream;
 //import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.net.URI;
 
 import static java.util.Objects.requireNonNull;
@@ -57,6 +61,19 @@ public final class FileMergeCachingFileSystem
 //
 //        return dataTier.openFile(path, hiveFileContext);
 //    }
+
+    @Override
+    public FSDataInputStream open(Path path, int bufferSize)
+            throws IOException
+    {
+        FSDataInputStream is = dataTier.open(path, bufferSize);
+        return new FileMergeCachingInputStream(
+                is,
+                cacheManager,
+                path,
+                CacheQuota.NO_CACHE_CONSTRAINTS,
+                cacheValidationEnabled);
+    }
 
     public boolean isCacheValidationEnabled()
     {

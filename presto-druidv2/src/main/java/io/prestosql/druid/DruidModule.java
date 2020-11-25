@@ -44,7 +44,6 @@ public class DruidModule
         //binder.bind(DruidQueryGenerator.class).in(Scopes.SINGLETON);
         binder.bind(DruidSessionProperties.class).in(Scopes.SINGLETON);
 
-        binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
-        binder.bind(HdfsConfiguration.class).to(DruidCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(DruidCachingFileSystem.class).in(Scopes.SINGLETON);
     }
 }

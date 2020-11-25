@@ -63,12 +63,15 @@ public final class FileMergeCachingInputStream
         FileReadRequest key = new FileReadRequest(path, position, length);
         switch (cacheManager.get(key, buffer, offset, cacheQuota)) {
             case HIT:
+                //System.out.println("HIT position = " + position + ", length = " + length);
                 break;
             case MISS:
+                //System.out.println("MISS position = " + position + ", length = " + length);
                 inputStream.readFully(position, buffer, offset, length);
                 cacheManager.put(key, wrappedBuffer(buffer, offset, length), cacheQuota);
                 return;
             case CACHE_QUOTA_EXCEED:
+                //System.out.println("CACHE_QUOTA_EXCEED position = " + position + ", length = " + length);
                 inputStream.readFully(position, buffer, offset, length);
                 return;
         }
