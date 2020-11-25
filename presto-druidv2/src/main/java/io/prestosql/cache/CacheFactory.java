@@ -21,7 +21,6 @@ import org.apache.hadoop.fs.FileSystem;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -47,7 +46,7 @@ public class CacheFactory
             boolean cachingEnabled,
             CacheType cacheType,
             boolean validationEnabled)
-            throws IOException
+            throws Exception
     {
         if (!cachingEnabled) {
             return fileSystem;
@@ -67,7 +66,8 @@ public class CacheFactory
                 AlluxioCachingFileSystem cachingFileSystem =
                         new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
                 updateConfiguration(factoryConfig);
-                cachingFileSystem.initialize(factoryUri, factoryConfig);
+                URI uri = new URI("alluxio://test:8020/");
+                cachingFileSystem.initialize(uri, factoryConfig);
                 return cachingFileSystem;
             default:
                 throw new IllegalArgumentException("Invalid CacheType: " + cacheType.name());
@@ -80,6 +80,7 @@ public class CacheFactory
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
             configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
             configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
+            configuration.set("alluxio.user.client.cache.page.size", alluxioCacheConfig.getPageCacheSize().toString());
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());

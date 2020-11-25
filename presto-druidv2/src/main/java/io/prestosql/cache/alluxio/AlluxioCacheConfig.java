@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class AlluxioCacheConfig
 {
@@ -26,6 +27,7 @@ public class AlluxioCacheConfig
     private String jmxClass = "alluxio.metrics.sink.JmxSink";
     private String metricsDomain = "com.facebook.alluxio";
     private DataSize maxCacheSize = DataSize.of(2, GIGABYTE);
+    private DataSize pageCacheSize = DataSize.of(1, MEGABYTE);
     private boolean configValidationEnabled;
 
     public boolean isMetricsCollectionEnabled()
@@ -90,6 +92,19 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setMaxCacheSize(DataSize maxCacheSize)
     {
         this.maxCacheSize = maxCacheSize;
+        return this;
+    }
+
+    public DataSize getPageCacheSize()
+    {
+        return pageCacheSize;
+    }
+
+    @Config("cache.alluxio.page-cache-size")
+    @ConfigDescription("Size of each page in client-side cache for alluxio cache")
+    public AlluxioCacheConfig setPageCacheSize(DataSize pageCacheSize)
+    {
+        this.pageCacheSize = pageCacheSize;
         return this;
     }
 

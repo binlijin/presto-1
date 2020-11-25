@@ -21,7 +21,6 @@ import org.apache.hadoop.fs.FileSystem;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.net.URI;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -59,7 +58,7 @@ public class DruidCachingFileSystem
                     cacheConfig.getCacheType(),
                     cacheConfig.isValidationEnabled());
         }
-        catch (IOException e) {
+        catch (Exception e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system",
                     e);
         }

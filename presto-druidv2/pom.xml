@@ -16,7 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.druid.version>0.18.1</dep.druid.version>
         <dep.roaringbitmap.version>0.8.11</dep.roaringbitmap.version>
-        <dep.alluxio.version>2.2.2-2</dep.alluxio.version>
+        <dep.alluxio.version>2.4.0</dep.alluxio.version>
     </properties>
 
     <dependencies>
