@@ -185,5 +185,6 @@ public class DruidSegmentReader
     public void close() throws IOException
     {
         //TODO
+        queryableIndex.close();
     }
 }

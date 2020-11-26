@@ -13,6 +13,7 @@
  */
 package io.prestosql.druid;
 
+import io.airlift.log.Logger;
 import io.prestosql.druid.uncompress.DruidUncompressedSegmentReader;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -22,6 +23,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
 
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -30,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class DruidUncompressedSegmentPageSource
         implements ConnectorPageSource
 {
+    private static final Logger LOG = Logger.get(DruidUncompressedSegmentPageSource.class);
+
     private final List<ColumnHandle> columns;
     private final DruidUncompressedSegmentReader segmentReader;
 
@@ -89,6 +93,11 @@ public class DruidUncompressedSegmentPageSource
     {
         closed = true;
         // TODO: close all column reader and value selectors
+        try {
+            segmentReader.close();
+        }
+        catch (IOException ioe) {
+        }
     }
 
     private final class SegmentBlockLoader
