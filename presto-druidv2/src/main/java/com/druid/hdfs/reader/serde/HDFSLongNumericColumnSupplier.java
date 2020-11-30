@@ -22,18 +22,17 @@ import org.apache.druid.segment.column.NumericColumn;
 public class HDFSLongNumericColumnSupplier
         implements Supplier<NumericColumn>
 {
-    private final HDFSCompressedColumnarLongsSupplier column;
-    private final ImmutableBitmap nullValueBitmap;
+    private NumericColumn column;
 
     public HDFSLongNumericColumnSupplier(HDFSCompressedColumnarLongsSupplier column,
             ImmutableBitmap nullValueBitmap)
     {
-        this.column = column;
-        this.nullValueBitmap = nullValueBitmap;
+        this.column = LongsColumn.create(column.get(), nullValueBitmap);
     }
 
-    @Override public NumericColumn get()
+    @Override
+    public NumericColumn get()
     {
-        return LongsColumn.create(column.get(), nullValueBitmap);
+        return column;
     }
 }

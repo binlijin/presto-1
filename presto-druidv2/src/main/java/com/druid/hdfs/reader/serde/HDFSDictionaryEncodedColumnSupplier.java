@@ -26,10 +26,7 @@ import javax.annotation.Nullable;
 public class HDFSDictionaryEncodedColumnSupplier
         implements Supplier<DictionaryEncodedColumn<?>>
 {
-    private final HDFSGenericIndexed<String> dictionary;
-    private final @Nullable Supplier<ColumnarInts> singleValuedColumn;
-    private final @Nullable Supplier<ColumnarMultiInts> multiValuedColumn;
-    private final int lookupCacheSize;
+    private DictionaryEncodedColumn column;
 
     public HDFSDictionaryEncodedColumnSupplier(
             HDFSGenericIndexed<String> dictionary,
@@ -37,17 +34,15 @@ public class HDFSDictionaryEncodedColumnSupplier
             @Nullable Supplier<ColumnarMultiInts> multiValuedColumn,
             int lookupCacheSize)
     {
-        this.dictionary = dictionary;
-        this.singleValuedColumn = singleValuedColumn;
-        this.multiValuedColumn = multiValuedColumn;
-        this.lookupCacheSize = lookupCacheSize;
-    }
-
-    @Override public DictionaryEncodedColumn<?> get()
-    {
-        return new HDFSStringDictionaryEncodedColumn(
+        this.column = new HDFSStringDictionaryEncodedColumn(
                 singleValuedColumn != null ? singleValuedColumn.get() : null,
                 multiValuedColumn != null ? multiValuedColumn.get() : null,
                 new HDFSCachingIndexed<>(dictionary, lookupCacheSize));
+    }
+
+    @Override
+    public DictionaryEncodedColumn<?> get()
+    {
+        return column;
     }
 }

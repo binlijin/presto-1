@@ -22,18 +22,17 @@ import org.apache.druid.segment.data.ColumnarDoubles;
 public class HDFSDoubleNumericColumnSupplier
         implements Supplier<NumericColumn>
 {
-    private final Supplier<ColumnarDoubles> column;
-    private final ImmutableBitmap nullValueBitmap;
+    private NumericColumn column;
 
     public HDFSDoubleNumericColumnSupplier(Supplier<ColumnarDoubles> column,
             ImmutableBitmap nullValueBitmap)
     {
-        this.column = column;
-        this.nullValueBitmap = nullValueBitmap;
+        this.column = DoublesColumn.create(column.get(), nullValueBitmap);
     }
 
-    @Override public NumericColumn get()
+    @Override
+    public NumericColumn get()
     {
-        return DoublesColumn.create(column.get(), nullValueBitmap);
+        return column;
     }
 }
