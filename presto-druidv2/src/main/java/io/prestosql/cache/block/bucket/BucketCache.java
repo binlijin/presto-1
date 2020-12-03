@@ -1494,14 +1494,12 @@ public class BucketCache
                 bucketEntry.setDeserializerReference(data.getDeserializer());
                 if (data instanceof FileBlock) {
                     // If an instance of HFileBlock, save on some allocations.
-//          HFileBlock block = (HFileBlock) data;
-//          ByteBuff sliceBuf = block.getBufferReadOnly();
-//          ByteBuffer metadata = block.getMetaData();
-//          ioEngine.write(sliceBuf, offset);
-//          ioEngine.write(metadata, offset + len - metadata.limit());
-                    //TODO
+                    FileBlock block = (FileBlock) data;
+                    ByteBuff sliceBuf = block.getBufferReadOnly();
+                    ioEngine.write(sliceBuf, offset);
                 }
                 else {
+                    // TODO has to fix serialize problem.
                     // Only used for testing.
                     ByteBuffer bb = ByteBuffer.allocate(len);
                     data.serialize(bb, true);

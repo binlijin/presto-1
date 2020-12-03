@@ -162,8 +162,33 @@ public class FileBlock
         return buf.release();
     }
 
+    /**
+     * Returns a read-only duplicate of the buffer this block stores internally ready to be read.
+     * Clients must not modify the buffer object though they may set position and limit on the
+     * returned buffer since we pass back a duplicate. This method has to be public because it is used
+     * in {link CompoundBloomFilter} to avoid object creation on every Bloom
+     * filter lookup, but has to be used with caution. Buffer holds header, block content,
+     * and any follow-on checksums if present.
+     *
+     * @return the buffer of this block for read-only operations
+     */
+    public ByteBuff getBufferReadOnly()
+    {
+        // TODO: ByteBuf does not support asReadOnlyBuffer(). Fix.
+        ByteBuff dup = this.buf.duplicate();
+        //assert dup.position() == 0;
+        return dup;
+    }
+
     public void get(byte[] dst, int offset, int length)
     {
         this.buf.get(dst, offset, length);
+    }
+
+    public byte[] getData()
+    {
+        byte[] data = new byte[buf.limit()];
+        buf.slice().get(data);
+        return data;
     }
 }

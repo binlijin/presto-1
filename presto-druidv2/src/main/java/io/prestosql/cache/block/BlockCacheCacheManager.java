@@ -30,11 +30,14 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+//import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockCacheCacheManager
         implements CacheManager
 {
     private static final Logger log = Logger.get(BlockCacheCacheManager.class);
+
+    //public static ConcurrentHashMap<BlockCacheKey, Cacheable> backingMap = new ConcurrentHashMap<>(1000);
 
     private BucketCache bucketCache;
 
@@ -103,8 +106,8 @@ public class BlockCacheCacheManager
             SingleByteBuff byteBuff = new SingleByteBuff(ByteBuffer.wrap(copy));
             Cacheable buf = new FileBlock(byteBuff, cacheKey.getBlockType(), cacheKey.getFileName(),
                     cacheKey.getOffset());
-            //System.out.println("add to cache cacheKey = " + cacheKey + ", dataLen = " + copy.length);
             bucketCache.cacheBlock(cacheKey, buf);
+            //backingMap.put(cacheKey, buf);
         }
     }
 
