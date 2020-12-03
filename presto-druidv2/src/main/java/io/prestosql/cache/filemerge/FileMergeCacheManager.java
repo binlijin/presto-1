@@ -13,7 +13,6 @@
  */
 package io.prestosql.cache.filemerge;
 
-import alluxio.collections.ConcurrentHashSet;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;

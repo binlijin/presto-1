@@ -23,7 +23,6 @@ import sun.misc.Unsafe;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -33,6 +32,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+//import java.io.UnsupportedEncodingException;
 
 /**
  * Utility class that handles byte arrays, conversions to/from other types,
@@ -577,9 +577,9 @@ public class Bytes
             return "";
         }
         try {
-            return new String(b, off, len, UTF8_CSN);
+            return new String(b, off, len, StandardCharsets.UTF_8);
         }
-        catch (UnsupportedEncodingException e) {
+        catch (Exception e) {
             // should never happen!
             throw new IllegalArgumentException("UTF8 encoding is not supported", e);
         }
@@ -603,9 +603,9 @@ public class Bytes
             return "";
         }
         try {
-            return new String(b, off, len, UTF8_CSN);
+            return new String(b, off, len, StandardCharsets.UTF_8);
         }
-        catch (UnsupportedEncodingException e) {
+        catch (Exception e) {
             // should never happen!
             throw new IllegalArgumentException("UTF8 encoding is not supported", e);
         }
@@ -752,9 +752,9 @@ public class Bytes
     public static byte[] toBytes(String s)
     {
         try {
-            return s.getBytes(UTF8_CSN);
+            return s.getBytes(StandardCharsets.UTF_8);
         }
-        catch (UnsupportedEncodingException e) {
+        catch (Exception e) {
             // should never happen!
             throw new IllegalArgumentException("UTF8 decoding is not supported", e);
         }

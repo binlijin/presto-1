@@ -13,7 +13,7 @@
  */
 package io.prestosql.cache.alluxio;
 
-import alluxio.hadoop.LocalCacheFileSystem;
+//import alluxio.hadoop.LocalCacheFileSystem;
 import io.prestosql.cache.CachingFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -28,7 +28,7 @@ public class AlluxioCachingFileSystem
 {
     private static final int BUFFER_SIZE = 65536;
     private final boolean cacheValidationEnabled;
-    private LocalCacheFileSystem localCacheFileSystem;
+    //private LocalCacheFileSystem localCacheFileSystem;
 
     public AlluxioCachingFileSystem(FileSystem dataTier, URI uri)
     {
@@ -45,19 +45,20 @@ public class AlluxioCachingFileSystem
     public synchronized void initialize(URI uri, Configuration configuration)
             throws IOException
     {
-        this.localCacheFileSystem = new LocalCacheFileSystem(dataTier);
-        localCacheFileSystem.initialize(uri, configuration);
+//        this.localCacheFileSystem = new LocalCacheFileSystem(dataTier);
+//        localCacheFileSystem.initialize(uri, configuration);
     }
 
     @Override
     public FSDataInputStream open(Path path, int bufferSize)
             throws IOException
     {
-        FSDataInputStream cachingInputStream = localCacheFileSystem.open(path, BUFFER_SIZE);
-        if (cacheValidationEnabled) {
-            return new CacheValidatingInputStream(cachingInputStream,
-                    dataTier.open(path, bufferSize));
-        }
-        return cachingInputStream;
+//        FSDataInputStream cachingInputStream = localCacheFileSystem.open(path, BUFFER_SIZE);
+//        if (cacheValidationEnabled) {
+//            return new CacheValidatingInputStream(cachingInputStream,
+//                    dataTier.open(path, bufferSize));
+//        }
+//        return cachingInputStream;
+        throw new IOException("NOT_SUPPORTED");
     }
 }

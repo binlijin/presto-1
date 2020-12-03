@@ -13,7 +13,7 @@
  */
 package io.prestosql.cache.alluxio;
 
-import alluxio.exception.ExceptionMessage;
+//import alluxio.exception.ExceptionMessage;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.EOFException;
@@ -103,6 +103,7 @@ public class CacheValidatingInputStream
     public boolean seekToNewSource(long target)
             throws IOException
     {
-        throw new IOException(ExceptionMessage.NOT_SUPPORTED.getMessage());
+        //throw new IOException(ExceptionMessage.NOT_SUPPORTED.getMessage());
+        throw new IOException("NOT_SUPPORTED");
     }
 }
