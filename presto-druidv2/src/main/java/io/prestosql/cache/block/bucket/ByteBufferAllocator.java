@@ -11,10 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
+/**
+ * Defines the way the ByteBuffers are created
+ */
+public interface ByteBufferAllocator
+{
+    /**
+     * Allocates a bytebuffer
+     *
+     * @param size the size of the bytebuffer
+     * @return the bytebuffer that is created
+     * @throws IOException exception thrown if there is an error while creating the ByteBuffer
+     */
+    ByteBuffer allocate(long size)
+            throws IOException;
 }

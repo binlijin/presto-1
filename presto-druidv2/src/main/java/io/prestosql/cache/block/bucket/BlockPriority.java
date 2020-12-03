@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+public enum BlockPriority
+{
+    /**
+     * Accessed a single time (used for scan-resistance)
+     */
+    SINGLE,
+    /**
+     * Accessed multiple times
+     */
+    MULTI,
+    /**
+     * Block from in-memory store
+     */
+    MEMORY
 }

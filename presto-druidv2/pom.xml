@@ -17,6 +17,8 @@
         <dep.druid.version>0.18.1</dep.druid.version>
         <dep.roaringbitmap.version>0.8.11</dep.roaringbitmap.version>
         <dep.alluxio.version>2.4.0</dep.alluxio.version>
+        <netty.version>4.1.53.Final</netty.version>
+        <protobuf.version>3.13.0</protobuf.version>
     </properties>
 
     <dependencies>
@@ -98,6 +100,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
         </dependency>
@@ -112,7 +126,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
@@ -120,7 +133,7 @@
 
         <dependency>
             <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
+            <artifactId>alluxio-core-client-hdfs</artifactId>
             <version>${dep.alluxio.version}</version>
             <exclusions>
                 <exclusion>
@@ -139,7 +152,17 @@
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
+            <version>4.2</version>
         </dependency>
 
         <dependency>
@@ -318,6 +341,12 @@
             <groupId>org.roaringbitmap</groupId>
             <artifactId>RoaringBitmap</artifactId>
             <version>${dep.roaringbitmap.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.30</version>
         </dependency>
 
         <dependency>

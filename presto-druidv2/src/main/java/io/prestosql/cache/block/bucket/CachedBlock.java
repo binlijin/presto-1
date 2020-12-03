@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+public interface CachedBlock
+        extends Comparable<CachedBlock>
+{
+    BlockPriority getBlockPriority();
+
+    BlockType getBlockType();
+
+    long getOffset();
+
+    long getSize();
+
+    long getCachedTime();
+
+    String getFilename();
 }

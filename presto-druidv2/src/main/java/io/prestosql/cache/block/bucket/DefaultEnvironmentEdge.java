@@ -11,10 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+/**
+ * Default implementation of an environment edge.
+ */
+public class DefaultEnvironmentEdge
+        implements EnvironmentEdge
+{
+    /**
+     * {@inheritDoc}
+     * <p>
+     * This implementation returns {@link System#currentTimeMillis()}
+     * </p>
+     */
+    @Override
+    public long currentTime()
+    {
+        return System.currentTimeMillis();
+    }
 }

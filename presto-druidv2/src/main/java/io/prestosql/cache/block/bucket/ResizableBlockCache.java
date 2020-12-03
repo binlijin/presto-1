@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+import io.prestosql.cache.block.BlockCache;
+
+/**
+ * BlockCache which is resizable.
+ */
+public interface ResizableBlockCache
+        extends BlockCache
+{
+    /**
+     * Sets the max heap size that can be used by the BlockCache.
+     *
+     * @param size The max heap size.
+     */
+    void setMaxSize(long size);
 }

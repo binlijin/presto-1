@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+/**
+ * Has some basic interaction with the environment. Alternate implementations
+ * can be used where required (eg in tests).
+ *
+ * @see EnvironmentEdgeManager
+ */
+public interface EnvironmentEdge
+{
+    /**
+     * Returns the currentTime.
+     *
+     * @return Current time.
+     */
+    long currentTime();
 }

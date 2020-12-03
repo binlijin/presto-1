@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache;
+package io.prestosql.cache.block.bucket;
 
-public enum CacheType {
-    FILE_MERGE,
-    ALLUXIO,
-    BLOCKCACHE
+import java.io.IOException;
+
+/**
+ * Thrown by {@link BucketAllocator}
+ */
+public class BucketAllocatorException
+        extends IOException
+{
+    private static final long serialVersionUID = 2479119906660788096L;
+
+    BucketAllocatorException(String reason)
+    {
+        super(reason);
+    }
 }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cache.filemerge;
+package io.prestosql.cache.block;
 
 import io.prestosql.cache.CacheManager;
 import io.prestosql.cache.CacheQuota;
@@ -25,7 +25,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
-public final class FileMergeCachingInputStream
+public final class BlockCacheCachingInputStream
         extends FSDataInputStream
 {
     private final FSDataInputStream inputStream;
@@ -35,7 +35,7 @@ public final class FileMergeCachingInputStream
     private final CacheQuota cacheQuota;
     private final boolean cacheValidationEnabled;
 
-    public FileMergeCachingInputStream(
+    public BlockCacheCachingInputStream(
             FSDataInputStream inputStream,
             CacheManager cacheManager,
             Path path,

@@ -22,12 +22,14 @@ import static java.util.Objects.requireNonNull;
 public class FileReadRequest
 {
     private final Path path;
+    private final String fileName;
     private final long offset;
     private final int length;
 
-    public FileReadRequest(Path path, long offset, int length)
+    public FileReadRequest(Path path, String fileName, long offset, int length)
     {
         this.path = requireNonNull(path, "path is null");
+        this.fileName = requireNonNull(fileName, "fileName is null");
         this.offset = requireNonNull(offset, "offset is null");
         this.length = requireNonNull(length, "length is null");
     }
@@ -35,6 +37,11 @@ public class FileReadRequest
     public Path getPath()
     {
         return path;
+    }
+
+    public String getFileName()
+    {
+        return fileName;
     }
 
     public long getOffset()

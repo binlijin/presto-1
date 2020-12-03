@@ -15,6 +15,7 @@ package io.prestosql.cache;
 
 import io.prestosql.cache.alluxio.AlluxioCacheConfig;
 import io.prestosql.cache.alluxio.AlluxioCachingFileSystem;
+import io.prestosql.cache.block.BlockCacheCachingFileSystem;
 import io.prestosql.cache.filemerge.FileMergeCachingFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -62,6 +63,7 @@ public class CacheFactory
                         cacheManager,
                         fileSystem,
                         validationEnabled);
+
             case ALLUXIO:
                 AlluxioCachingFileSystem cachingFileSystem =
                         new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
@@ -69,6 +71,13 @@ public class CacheFactory
                 URI uri = new URI("alluxio://test:8020/");
                 cachingFileSystem.initialize(uri, factoryConfig);
                 return cachingFileSystem;
+            case BLOCKCACHE:
+                return new BlockCacheCachingFileSystem(
+                        factoryUri,
+                        factoryConfig,
+                        cacheManager,
+                        fileSystem,
+                        validationEnabled);
             default:
                 throw new IllegalArgumentException("Invalid CacheType: " + cacheType.name());
         }
