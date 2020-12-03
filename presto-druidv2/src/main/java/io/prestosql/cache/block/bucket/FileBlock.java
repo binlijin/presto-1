@@ -139,6 +139,29 @@ public class FileBlock
         return ClassSize.align(size);
     }
 
+    @Override
+    public int refCnt()
+    {
+        return buf.refCnt();
+    }
+
+    @Override
+    public FileBlock retain()
+    {
+        buf.retain();
+        return this;
+    }
+
+    /**
+     * Call {@link ByteBuff#release()} to decrease the reference count, if no other reference, it will
+     * return back the {@link ByteBuffer} to {link org.apache.hadoop.hbase.io.ByteBuffAllocator}
+     */
+    @Override
+    public boolean release()
+    {
+        return buf.release();
+    }
+
     public void get(byte[] dst, int offset, int length)
     {
         this.buf.get(dst, offset, length);

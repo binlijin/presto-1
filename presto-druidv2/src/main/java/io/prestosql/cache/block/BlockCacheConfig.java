@@ -22,9 +22,9 @@ public class BlockCacheConfig
 {
     private String bucketCacheIOEngineName;
     private int blockSize = 64 * 1024;
-    private long bucketCacheSize = 1 * 1024 * 1024;
-    private int writerThreads;
-    private int writerQueueLen;
+    private long bucketCacheSize = 1024 * 1024 * 1024;
+    private int writerThreads = 3;
+    private int writerQueueLen = 64;
     private String persistentPath;
     private int ioErrorsTolerationDuration = 60 * 1000;
 
@@ -62,7 +62,7 @@ public class BlockCacheConfig
 
     @Config("bucketcache.size")
     @ConfigDescription("It is the capacity of the cache.")
-    public BlockCacheConfig setBucketCacheSize(int bucketCacheSize)
+    public BlockCacheConfig setBucketCacheSize(long bucketCacheSize)
     {
         this.bucketCacheSize = bucketCacheSize;
         return this;

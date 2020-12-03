@@ -85,6 +85,7 @@ public class BlockCacheCacheManager
             if (cachedBlock != null) {
                 if (cachedBlock.getSerializedLength() >= request.getLength()) {
                     cachedBlock.get(buffer, offset, request.getLength());
+                    cachedBlock.release();
                     return CacheResult.HIT;
                 }
             }
