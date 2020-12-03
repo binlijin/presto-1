@@ -63,4 +63,9 @@ public class DruidCachingFileSystem
                     e);
         }
     }
+
+    public final void shutdown()
+    {
+        cacheManager.shutdown();
+    }
 }

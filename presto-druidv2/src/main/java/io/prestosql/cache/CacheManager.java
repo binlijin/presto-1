@@ -34,4 +34,6 @@ public interface CacheManager
      * Save data in cache
      */
     void put(FileReadRequest request, Slice data, CacheQuota cacheQuota);
+
+    default void shutdown() {}
 }

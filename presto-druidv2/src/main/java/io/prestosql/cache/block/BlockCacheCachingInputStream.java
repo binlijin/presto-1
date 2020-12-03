@@ -46,7 +46,7 @@ public final class BlockCacheCachingInputStream
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.path = requireNonNull(path, "path is null");
-        this.fileName = path.toUri().getPath();
+        this.fileName = path.toString();
         this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.cacheValidationEnabled = cacheValidationEnabled;
     }
@@ -65,15 +65,15 @@ public final class BlockCacheCachingInputStream
         FileReadRequest key = new FileReadRequest(path, fileName, position, length);
         switch (cacheManager.get(key, buffer, offset, cacheQuota)) {
             case HIT:
-                //System.out.println("HIT position = " + position + ", length = " + length);
+                //System.out.println("HIT position = " + position + ", length = " + length + ", fileName = " + fileName);
                 break;
             case MISS:
-                //System.out.println("MISS position = " + position + ", length = " + length);
+                //System.out.println("MISS position = " + position + ", length = " + length + ", fileName = " + fileName);
                 inputStream.readFully(position, buffer, offset, length);
                 cacheManager.put(key, wrappedBuffer(buffer, offset, length), cacheQuota);
                 return;
             case CACHE_QUOTA_EXCEED:
-                //System.out.println("CACHE_QUOTA_EXCEED position = " + position + ", length = " + length);
+                //System.out.println("CACHE_QUOTA_EXCEED position = " + position + ", length = " + length + ", fileName = " + fileName);
                 inputStream.readFully(position, buffer, offset, length);
                 return;
         }

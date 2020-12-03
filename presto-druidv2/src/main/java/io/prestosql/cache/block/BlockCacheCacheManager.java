@@ -83,6 +83,7 @@ public class BlockCacheCacheManager
             BlockCacheKey cacheKey = new BlockCacheKey(request.getFileName(), request.getOffset());
             FileBlock cachedBlock = (FileBlock) bucketCache.getBlock(cacheKey, true, false, true);
             if (cachedBlock != null) {
+                //System.out.println("get from cache cacheKey = " + cacheKey + ", dataLen = " + cachedBlock.getSerializedLength());
                 if (cachedBlock.getSerializedLength() >= request.getLength()) {
                     cachedBlock.get(buffer, offset, request.getLength());
                     cachedBlock.release();
@@ -102,7 +103,19 @@ public class BlockCacheCacheManager
             SingleByteBuff byteBuff = new SingleByteBuff(ByteBuffer.wrap(copy));
             Cacheable buf = new FileBlock(byteBuff, cacheKey.getBlockType(), cacheKey.getFileName(),
                     cacheKey.getOffset());
+            //System.out.println("add to cache cacheKey = " + cacheKey + ", dataLen = " + copy.length);
             bucketCache.cacheBlock(cacheKey, buf);
+        }
+    }
+
+    @Override
+    public final void shutdown()
+    {
+        try {
+            bucketCache.shutdown();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
         }
     }
 }

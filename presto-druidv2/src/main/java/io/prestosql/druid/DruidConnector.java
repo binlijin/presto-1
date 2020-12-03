@@ -44,6 +44,7 @@ public class DruidConnector
     private final DruidPageSourceProvider pageSourceProvider;
     private final DruidPageSinkProvider pageSinkProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final DruidCachingFileSystem druidCachingFileSystem;
 
     @Inject
     public DruidConnector(
@@ -52,7 +53,8 @@ public class DruidConnector
             DruidSplitManager splitManager,
             DruidPageSourceProvider pageSourceProvider,
             DruidPageSinkProvider pageSinkProvider,
-            DruidSessionProperties druidSessionProperties)
+            DruidSessionProperties druidSessionProperties,
+            DruidCachingFileSystem druidCachingFileSystem)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -60,6 +62,7 @@ public class DruidConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvide is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(druidSessionProperties, "sessionProperties is null").getSessionProperties());
+        this.druidCachingFileSystem = requireNonNull(druidCachingFileSystem, "druidCachingFileSystem is null");
     }
 
     @Override
@@ -101,6 +104,12 @@ public class DruidConnector
     @Override
     public final void shutdown()
     {
+        try {
+            druidCachingFileSystem.shutdown();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down DruidCachingFileSystem");
+        }
         try {
             lifeCycleManager.stop();
         }
