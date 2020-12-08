@@ -38,6 +38,7 @@ public class DruidConfig
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
+    private int maxBatchSize = 1024;
 
     public enum DruidAuthenticationType
     {
@@ -192,6 +193,18 @@ public class DruidConfig
     public DruidConfig setIngestionStoragePath(String ingestionStoragePath)
     {
         this.ingestionStoragePath = ingestionStoragePath;
+        return this;
+    }
+
+    public int getMaxBatchSize()
+    {
+        return maxBatchSize;
+    }
+
+    @Config("druid.max.batch.size")
+    public DruidConfig setMaxBatchSize(int maxBatchSize)
+    {
+        this.maxBatchSize = maxBatchSize;
         return this;
     }
 }

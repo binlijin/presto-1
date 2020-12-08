@@ -61,11 +61,11 @@ public class DruidUncompressedSegmentReader
 {
     private static final Logger LOG = Logger.get(DruidUncompressedSegmentReader.class);
 
-    private static final int BATCH_SIZE = 1024;
-
     private final Map<String, ColumnReader> columnValueSelectors;
     private final long totalRowCount;
     private final DimFilter filter;
+    private final int maxBatchSize;
+    private final Path segmentPath;
 
     private QueryableIndex queryableIndex;
     private long currentPosition;
@@ -74,11 +74,14 @@ public class DruidUncompressedSegmentReader
     public DruidUncompressedSegmentReader(
             FileSystem fileSystem,
             Path segmentPath,
+            int maxBatchSize,
             List<ColumnHandle> columns,
             DimFilter filter,
             long limit)
     {
         try {
+            this.segmentPath = segmentPath;
+            this.maxBatchSize = maxBatchSize;
             this.filter = filter;
             V9UncompressedSegmentIndexSource uncompressedSegmentIndexSource =
                     new V9UncompressedSegmentIndexSource(fileSystem, segmentPath);
@@ -89,7 +92,7 @@ public class DruidUncompressedSegmentReader
                 totalRowCount =
                         Long.min(filterBitmap.size(), Long.min(queryableIndex.getNumRows(), limit));
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("DruidSegmentReader select " + filterBitmap.size() + "/"
+                    LOG.debug("DruidSegmentReader for " + segmentPath + ", select " + filterBitmap.size() + "/"
                             + queryableIndex.getNumRows() + " rows ");
                 }
             }
@@ -97,9 +100,8 @@ public class DruidUncompressedSegmentReader
                 totalRowCount = Long.min(queryableIndex.getNumRows(), limit);
             }
             if (LOG.isDebugEnabled()) {
-                LOG.debug(
-                        "DruidSegmentReader totalRowCount = " + totalRowCount + ", limit = " + limit
-                                + ", filter = " + this.filter);
+                LOG.debug("DruidSegmentReader for " + segmentPath + ", totalRowCount = " + totalRowCount + ", limit = " + limit
+                        + ", filter = " + this.filter);
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
@@ -113,6 +115,7 @@ public class DruidUncompressedSegmentReader
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
+                LOG.debug("Read columnName = " + columnName + ", type " + type);
                 BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                 ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
                 selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
@@ -124,15 +127,17 @@ public class DruidUncompressedSegmentReader
         }
     }
 
-    @Override public int nextBatch()
+    @Override
+    public int nextBatch()
     {
         // TODO: dynamic batch sizing
-        currentBatchSize = toIntExact(min(BATCH_SIZE, totalRowCount - currentPosition));
+        currentBatchSize = toIntExact(min(maxBatchSize, totalRowCount - currentPosition));
         currentPosition += currentBatchSize;
         return currentBatchSize;
     }
 
-    @Override public Block readBlock(Type type, String columnName)
+    @Override
+    public Block readBlock(Type type, String columnName)
     {
         return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
     }
@@ -140,7 +145,7 @@ public class DruidUncompressedSegmentReader
     public long getReadTimeNanos()
     {
 //        if (LOG.isDebugEnabled()) {
-//            LOG.debug("ReadTimeMs = "
+//            LOG.debug(segmentPath + " ReadTimeMs = "
 //                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
 //                    + " ms.");
 //        }
@@ -205,6 +210,11 @@ public class DruidUncompressedSegmentReader
     @Override
     public void close() throws IOException
     {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(segmentPath + " ReadTimeMs = "
+                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
+                    + " ms.");
+        }
         //TODO
         queryableIndex.close();
     }

@@ -55,6 +55,7 @@ public class DruidPageSourceProvider
     private static final Logger LOG = Logger.get(DruidPageSourceProvider.class);
 
     private final DruidClient druidClient;
+    private final DruidConfig config;
     private final Configuration hadoopConfiguration;
     private final DruidCachingFileSystem druidCachingFileSystem;
 
@@ -65,6 +66,7 @@ public class DruidPageSourceProvider
             DruidCachingFileSystem druidCachingFileSystem)
     {
         this.druidClient = requireNonNull(druidClient, "druid client is null");
+        this.config = requireNonNull(config, "druid config is null");
         this.hadoopConfiguration = config.readHadoopConfiguration();
         this.druidCachingFileSystem = druidCachingFileSystem;
     }
@@ -96,8 +98,7 @@ public class DruidPageSourceProvider
             limit = druidTableHandle.getLimit().getAsLong();
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug("filter = " + filter);
-            LOG.debug("limit = " + limit);
+            LOG.debug("filter = " + filter + "limit = " + limit);
         }
 
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
@@ -108,9 +109,13 @@ public class DruidPageSourceProvider
                     segmentPath.toUri());
             if (fileSystem.isDirectory(segmentPath)) {
                 // TODO
-                DruidUncompressedSegmentReader reader =
-                        new DruidUncompressedSegmentReader(fileSystem, segmentPath, columns, filter,
-                                limit);
+                DruidUncompressedSegmentReader reader = new DruidUncompressedSegmentReader(
+                        fileSystem,
+                        segmentPath,
+                        config.getMaxBatchSize(),
+                        columns,
+                        filter,
+                        limit);
                 return new DruidUncompressedSegmentPageSource(columns, reader);
             }
             else {

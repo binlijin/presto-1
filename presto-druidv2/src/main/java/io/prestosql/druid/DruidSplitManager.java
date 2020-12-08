@@ -54,6 +54,7 @@ public class DruidSplitManager
             SplitSchedulingStrategy splitSchedulingContext,
             DynamicFilter dynamicFilter)
     {
+        long startTime = System.currentTimeMillis();
         DruidTableHandle table = (DruidTableHandle) tableHandle;
         //if (isComputePushdownEnabled(session) || (table.getDql().isPresent() && table.getDql().get().getPushdown())) {
         // TODO
@@ -69,7 +70,7 @@ public class DruidSplitManager
                 .map(info -> createSegmentSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
                 .collect(toImmutableList());
         if (LOG.isDebugEnabled()) {
-            LOG.debug("splits = " + splits);
+            LOG.debug("Get splits = " + splits + " takes " + (System.currentTimeMillis() - startTime) + " ms.");
         }
         return new FixedSplitSource(splits);
     }

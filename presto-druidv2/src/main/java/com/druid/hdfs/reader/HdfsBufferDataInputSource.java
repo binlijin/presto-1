@@ -70,6 +70,7 @@ public class HdfsBufferDataInputSource
     public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
+        long start = System.nanoTime();
         if (startPosition > 0 && ((position >= startPosition) && (position + bufferLength) <= (
                 startPosition + this.dataBuffer.length))) {
             // cache data in dataBuffer
@@ -77,9 +78,9 @@ public class HdfsBufferDataInputSource
             System.arraycopy(dataBuffer, srcPos, buffer, bufferOffset, bufferLength);
 //            System.out.println("read " + bufferLength + " bytes from cache data buffer.");
 //            new IOException("read " + bufferLength + " bytes from cache data buffer.").printStackTrace();
+            readTimeNanos.addAndGet(System.nanoTime() - start);
             return;
         }
-        long start = System.nanoTime();
         if (bufferLength >= Constants.BUFFER_SIZE) {
             readInternal(position, buffer, bufferOffset, bufferLength);
             startPosition = -1L;
