@@ -17,6 +17,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.filter.SelectorFilter;
 
 import static io.prestosql.druid.DruidErrorCode.DRUID_UNSUPPORTED_TYPE_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -46,6 +47,14 @@ public interface ColumnReader
         }
         if (type == TIMESTAMP) {
             return new TimestampColumnReader(valueSelector);
+        }
+        throw new PrestoException(DRUID_UNSUPPORTED_TYPE_ERROR, format("Unsupported type: %s", type));
+    }
+
+    static ColumnReader createConstantsColumnReader(Type type, SelectorFilter selectorFilter)
+    {
+        if (type == VARCHAR) {
+            return new ConstantStringColumnReader(selectorFilter);
         }
         throw new PrestoException(DRUID_UNSUPPORTED_TYPE_ERROR, format("Unsupported type: %s", type));
     }

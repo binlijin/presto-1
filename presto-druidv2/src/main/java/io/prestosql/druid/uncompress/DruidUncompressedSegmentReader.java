@@ -38,6 +38,7 @@ import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.data.ReadableOffset;
 import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.Filters;
+import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -50,9 +51,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.prestosql.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
 import static io.prestosql.druid.column.ColumnReader.createColumnReader;
+import static io.prestosql.druid.column.ColumnReader.createConstantsColumnReader;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 
@@ -70,6 +73,7 @@ public class DruidUncompressedSegmentReader
     private QueryableIndex queryableIndex;
     private long currentPosition;
     private int currentBatchSize;
+    private Map<String, SelectorFilter> constantFields = new ConcurrentHashMap<>();
 
     public DruidUncompressedSegmentReader(
             FileSystem fileSystem,
@@ -115,10 +119,17 @@ public class DruidUncompressedSegmentReader
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
-                LOG.debug("Read columnName = " + columnName + ", type " + type);
-                BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
-                ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
+                //LOG.debug("Read columnName = " + columnName + ", type " + type);
+                if (constantFields.containsKey(columnName)) {
+                    SelectorFilter selectorFilter = constantFields.get(columnName);
+                    selectorsBuilder.put(columnName, createConstantsColumnReader(type, selectorFilter));
+                    //LOG.debug("Constants columnName = " + columnName + ", value = " + selectorFilter.getValue() + ", type " + type);
+                }
+                else {
+                    BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
+                    ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
+                    selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
+                }
             }
             columnValueSelectors = selectorsBuilder.build();
         }
@@ -179,6 +190,10 @@ public class DruidUncompressedSegmentReader
                     if (subfilter.supportsBitmapIndex(indexSelector) && subfilter
                             .shouldUseBitmapIndex(indexSelector)) {
                         preFilters.add(subfilter);
+                        if (subfilter instanceof SelectorFilter) {
+                            SelectorFilter selectorFilter = (SelectorFilter) subfilter;
+                            constantFields.put(selectorFilter.getDimension(), selectorFilter);
+                        }
                     }
                     else {
                         postFilters.add(subfilter);
