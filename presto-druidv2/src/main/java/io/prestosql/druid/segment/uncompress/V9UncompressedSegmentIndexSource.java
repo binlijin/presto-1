@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.druid.uncompress;
+package io.prestosql.druid.segment.uncompress;
 
 import com.druid.hdfs.reader.HDFSIndexIO;
 import io.prestosql.druid.DruidColumnHandle;

@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.druid.uncompress;
+package io.prestosql.druid.segment.compress;
 
-import com.druid.hdfs.reader.HDFSSimpleQueryableIndex;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.druid.DruidColumnHandle;
 import io.prestosql.druid.column.BitmapReadableOffset;
 import io.prestosql.druid.column.ColumnReader;
 import io.prestosql.druid.column.SimpleReadableOffset;
+import io.prestosql.druid.segment.SegmentIndexSource;
 import io.prestosql.druid.segment.SegmentReader;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -38,9 +38,6 @@ import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.data.ReadableOffset;
 import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.Filters;
-import org.apache.druid.segment.filter.SelectorFilter;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 
@@ -51,52 +48,39 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static io.prestosql.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
 import static io.prestosql.druid.column.ColumnReader.createColumnReader;
-import static io.prestosql.druid.column.ColumnReader.createConstantsColumnReader;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 
-public class DruidUncompressedSegmentReader
+public class DruidSegmentReader
         implements SegmentReader
 {
-    private static final Logger LOG = Logger.get(DruidUncompressedSegmentReader.class);
+    private static final Logger LOG = Logger.get(DruidSegmentReader.class);
+
+    private static final int BATCH_SIZE = 1024;
 
     private final Map<String, ColumnReader> columnValueSelectors;
     private final long totalRowCount;
     private final DimFilter filter;
-    private final int maxBatchSize;
-    private final Path segmentPath;
 
     private QueryableIndex queryableIndex;
     private long currentPosition;
     private int currentBatchSize;
-    private Map<String, SelectorFilter> constantFields = new ConcurrentHashMap<>();
 
-    public DruidUncompressedSegmentReader(
-            FileSystem fileSystem,
-            Path segmentPath,
-            int maxBatchSize,
-            List<ColumnHandle> columns,
-            DimFilter filter,
-            long limit)
+    public DruidSegmentReader(SegmentIndexSource segmentIndexSource, List<ColumnHandle> columns,
+            DimFilter filter, long limit)
     {
         try {
-            this.segmentPath = segmentPath;
-            this.maxBatchSize = maxBatchSize;
+            queryableIndex = segmentIndexSource.loadIndex(columns);
             this.filter = filter;
-            V9UncompressedSegmentIndexSource uncompressedSegmentIndexSource =
-                    new V9UncompressedSegmentIndexSource(fileSystem, segmentPath);
-            queryableIndex = uncompressedSegmentIndexSource.loadIndex(columns);
-
-            ImmutableBitmap filterBitmap = analyzeFilter(Filters.toFilter(this.filter));
+            ImmutableBitmap filterBitmap = analyzeFilter(Filters.toFilter(filter));
             if (filterBitmap != null) {
                 totalRowCount =
                         Long.min(filterBitmap.size(), Long.min(queryableIndex.getNumRows(), limit));
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("DruidSegmentReader for " + segmentPath + ", select " + filterBitmap.size() + "/"
+                    LOG.debug("DruidSegmentReader select " + filterBitmap.size() + "/"
                             + queryableIndex.getNumRows() + " rows ");
                 }
             }
@@ -104,8 +88,9 @@ public class DruidUncompressedSegmentReader
                 totalRowCount = Long.min(queryableIndex.getNumRows(), limit);
             }
             if (LOG.isDebugEnabled()) {
-                LOG.debug("DruidSegmentReader for " + segmentPath + ", totalRowCount = " + totalRowCount + ", limit = " + limit
-                        + ", filter = " + this.filter);
+                LOG.debug(
+                        "DruidSegmentReader totalRowCount = " + totalRowCount + ", limit = " + limit
+                                + ", filter = " + filter);
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
@@ -119,17 +104,9 @@ public class DruidUncompressedSegmentReader
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
-                //LOG.debug("Read columnName = " + columnName + ", type " + type);
-                if (constantFields.containsKey(columnName)) {
-                    SelectorFilter selectorFilter = constantFields.get(columnName);
-                    selectorsBuilder.put(columnName, createConstantsColumnReader(type, selectorFilter));
-                    //LOG.debug("Constants columnName = " + columnName + ", value = " + selectorFilter.getValue() + ", type " + type);
-                }
-                else {
-                    BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
-                    ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                    selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
-                }
+                BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
+                ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
+                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
             }
             columnValueSelectors = selectorsBuilder.build();
         }
@@ -142,25 +119,9 @@ public class DruidUncompressedSegmentReader
     public int nextBatch()
     {
         // TODO: dynamic batch sizing
-        currentBatchSize = toIntExact(min(maxBatchSize, totalRowCount - currentPosition));
+        currentBatchSize = toIntExact(min(BATCH_SIZE, totalRowCount - currentPosition));
         currentPosition += currentBatchSize;
         return currentBatchSize;
-    }
-
-    @Override
-    public Block readBlock(Type type, String columnName)
-    {
-        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
-    }
-
-    public long getReadTimeNanos()
-    {
-//        if (LOG.isDebugEnabled()) {
-//            LOG.debug(segmentPath + " ReadTimeMs = "
-//                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
-//                    + " ms.");
-//        }
-        return ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos();
     }
 
     public ImmutableBitmap analyzeFilter(@Nullable final Filter filter)
@@ -185,15 +146,9 @@ public class DruidUncompressedSegmentReader
             if (filter instanceof AndFilter) {
                 // If we get an AndFilter, we can split the subfilters across both filtering stages
                 for (Filter subfilter : ((AndFilter) filter).getFilters()) {
-                    // only string typed dimensions support bitmap index
-                    // https://druid.apache.org/docs/latest/ingestion/index.html#dimensionsspec
                     if (subfilter.supportsBitmapIndex(indexSelector) && subfilter
                             .shouldUseBitmapIndex(indexSelector)) {
                         preFilters.add(subfilter);
-                        if (subfilter instanceof SelectorFilter) {
-                            SelectorFilter selectorFilter = (SelectorFilter) subfilter;
-                            constantFields.put(selectorFilter.getDimension(), selectorFilter);
-                        }
                     }
                     else {
                         postFilters.add(subfilter);
@@ -223,13 +178,14 @@ public class DruidUncompressedSegmentReader
     }
 
     @Override
+    public Block readBlock(Type type, String columnName)
+    {
+        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
+    }
+
+    @Override
     public void close() throws IOException
     {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(segmentPath + " ReadTimeMs = "
-                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
-                    + " ms.");
-        }
         //TODO
         queryableIndex.close();
     }

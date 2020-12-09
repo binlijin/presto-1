@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.druid;
+package io.prestosql.druid.segment.uncompress;
 
-import io.prestosql.druid.segment.DruidSegmentReader;
+import io.airlift.log.Logger;
+import io.prestosql.druid.DruidColumnHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
@@ -28,49 +29,51 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class DruidSegmentPageSource
+public class DruidUncompressedSegmentPageSource
         implements ConnectorPageSource
 {
-    private final DataInputSource dataInputSource;
+    private static final Logger LOG = Logger.get(DruidUncompressedSegmentPageSource.class);
+
     private final List<ColumnHandle> columns;
-    private final DruidSegmentReader segmentReader;
+    private final DruidUncompressedSegmentReader segmentReader;
 
     private int batchId;
     private boolean closed;
     private long completedBytes;
     private long completedPositions;
+    private long buildPageTime;
+    private long compressTime;
+    private long compressNum;
 
-    public DruidSegmentPageSource(
-            DataInputSource dataInputSource,
+    public DruidUncompressedSegmentPageSource(
             List<ColumnHandle> columns,
-            DruidSegmentReader segmentReader)
+            DruidUncompressedSegmentReader segmentReader)
     {
-        this.dataInputSource = requireNonNull(dataInputSource, "dataInputSource is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.segmentReader = requireNonNull(segmentReader, "segmentReader is null");
+        this.buildPageTime = 0L;
+        this.compressTime = 0L;
+        this.compressNum = 0L;
     }
 
-    @Override
-    public long getCompletedBytes()
+    @Override public long getCompletedBytes()
     {
         return completedBytes;
     }
 
-    @Override
-    public long getReadTimeNanos()
+    @Override public long getReadTimeNanos()
     {
-        return dataInputSource.getReadTimeNanos();
+        return segmentReader.getReadTimeNanos();
     }
 
-    @Override
-    public boolean isFinished()
+    @Override public boolean isFinished()
     {
         return closed;
     }
 
-    @Override
-    public Page getNextPage()
+    @Override public Page getNextPage()
     {
+        long start = System.nanoTime();
         batchId++;
         int batchSize = segmentReader.nextBatch();
         if (batchSize <= 0) {
@@ -85,25 +88,33 @@ public class DruidSegmentPageSource
         Page page = new Page(batchSize, blocks);
         completedBytes += page.getSizeInBytes();
         completedPositions += page.getPositionCount();
+        buildPageTime += (System.nanoTime() - start);
         return page;
     }
 
-    @Override
-    public long getSystemMemoryUsage()
+    @Override public long getSystemMemoryUsage()
     {
         return 0;
     }
 
-    @Override
-    public void close()
+    @Override public void close()
     {
+        if (closed) {
+            return;
+        }
+        LOG.debug("buildPageTime = " + buildPageTime / 1000000 + " ms.");
+        LOG.debug("compressTime = " + compressTime / 1000000 + " ms.");
+        LOG.debug("compressNum = " + compressNum + " .");
+        LOG.debug("completedPositions = " + completedPositions + " .");
+        LOG.debug("completedBytes = " + completedBytes + " .");
+
         closed = true;
+        // TODO: close all column reader and value selectors
         try {
             segmentReader.close();
         }
         catch (IOException ioe) {
         }
-        // TODO: close all column reader and value selectors
     }
 
     private final class SegmentBlockLoader
