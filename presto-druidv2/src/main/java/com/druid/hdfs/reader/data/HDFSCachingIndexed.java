@@ -70,6 +70,11 @@ public class HDFSCachingIndexed<T>
         }
     }
 
+    public byte[] getObjectByte(int index)
+    {
+        return delegate.getObjectByte(index);
+    }
+
     @Override public int indexOf(@Nullable T value)
     {
         return delegate.indexOf(value);

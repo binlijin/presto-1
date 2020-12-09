@@ -260,6 +260,8 @@ public class HDFSGenericIndexed<T>
          */
         abstract int getLastValueSize();
 
+        abstract byte[] getObjectByte(int index);
+
         @Override
         public Iterator<T> iterator()
         {
@@ -300,6 +302,12 @@ public class HDFSGenericIndexed<T>
                 {
                     return bufferIndexed.getLastValueSize();
                 }
+
+                @Override
+                public byte[] getObjectByte(int i)
+                {
+                    return bufferIndexed.getObjectByte(i);
+                }
             };
         }
         else {
@@ -327,6 +335,12 @@ public class HDFSGenericIndexed<T>
                 int getLastValueSize()
                 {
                     return bufferIndexed.getLastValueSize();
+                }
+
+                @Override
+                public byte[] getObjectByte(int i)
+                {
+                    return bufferIndexed.getObjectByte(i);
                 }
             };
         }

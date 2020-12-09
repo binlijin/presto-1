@@ -13,6 +13,7 @@
  */
 package io.prestosql.druid.column;
 
+import com.druid.hdfs.reader.column.ColumnValueReader;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -27,10 +28,16 @@ public class StringColumnReader
         implements ColumnReader
 {
     private final ColumnValueSelector<String> valueSelector;
+    private final boolean optimize;
+    private ColumnValueReader columnValueReader;
 
     public StringColumnReader(ColumnValueSelector valueSelector)
     {
         this.valueSelector = requireNonNull(valueSelector, "value selector is null");
+        this.optimize = valueSelector instanceof ColumnValueReader;
+        if (optimize) {
+            columnValueReader = (ColumnValueReader) valueSelector;
+        }
     }
 
     @Override
@@ -39,12 +46,23 @@ public class StringColumnReader
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            String value = String.valueOf(valueSelector.getObject());
-            if (value != null) {
-                type.writeSlice(builder, Slices.utf8Slice(value));
+            if (optimize) {
+                byte[] object = columnValueReader.getObjectByte();
+                if (object != null && object.length > 0) {
+                    type.writeSlice(builder, Slices.wrappedBuffer(object, 0, object.length));
+                }
+                else {
+                    builder.appendNull();
+                }
             }
             else {
-                builder.appendNull();
+                String value = String.valueOf(valueSelector.getObject());
+                if (value != null) {
+                    type.writeSlice(builder, Slices.utf8Slice(value));
+                }
+                else {
+                    builder.appendNull();
+                }
             }
         }
 

@@ -93,6 +93,12 @@ public class HDFSStringDictionaryEncodedColumn
         return cachedLookups.size();
     }
 
+    @Nullable
+    public byte[] lookupObjectByte(int id)
+    {
+        return cachedLookups.getObjectByte(id);
+    }
+
     @Override public HistoricalDimensionSelector makeDimensionSelector(final ReadableOffset offset,
             @Nullable final ExtractionFn extractionFn)
     {
@@ -145,7 +151,7 @@ public class HDFSStringDictionaryEncodedColumn
         else {
             class SingleValueQueryableDimensionSelector
                     extends QueryableDimensionSelector
-                    implements SingleValueHistoricalDimensionSelector
+                    implements SingleValueHistoricalDimensionSelector, ColumnValueReader
             {
                 private final SingleIndexedInt row = new SingleIndexedInt();
 
@@ -247,6 +253,11 @@ public class HDFSStringDictionaryEncodedColumn
                     inspector.visit("column", column);
                     inspector.visit("offset", offset);
                     inspector.visit("extractionFn", extractionFn);
+                }
+
+                @Override public byte[] getObjectByte()
+                {
+                    return HDFSStringDictionaryEncodedColumn.this.lookupObjectByte(getRowValue());
                 }
             }
 

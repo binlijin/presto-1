@@ -334,6 +334,27 @@ public class HDFSByteBuffGenericIndexed<T>
             return size;
         }
 
+        @Nullable
+        byte[] bufferedIndexedGetByteArray(HDFSByteBuff copyValueBuffer, int startOffset, int endOffset)
+                throws IOException
+        {
+            int size = endOffset - startOffset;
+            // When size is 0 and SQL compatibility is enabled also check for null marker before returning null.
+            // When SQL compatibility is not enabled return null for both null as well as empty string case.
+            if (size == 0 && (NullHandling.replaceWithDefault()
+                    || copyValueBuffer.get(startOffset - Integer.BYTES)
+                    == NULL_VALUE_SIZE_MARKER)) {
+                return null;
+            }
+            lastReadSize = size;
+
+            copyValueBuffer.clear();
+            copyValueBuffer.position(startOffset);
+            byte[] bytes = new byte[size];
+            copyValueBuffer.get(bytes);
+            return bytes;
+        }
+
         @Nullable T bufferedIndexedGet(HDFSByteBuff copyValueBuffer, int startOffset, int endOffset)
                 throws IOException
         {
@@ -372,6 +393,8 @@ public class HDFSByteBuffGenericIndexed<T>
         {
             return HDFSByteBuffGenericIndexed.this.iterator();
         }
+
+        abstract byte[] getObjectByte(int index);
     }
 
     /**
@@ -417,6 +440,31 @@ public class HDFSByteBuffGenericIndexed<T>
                 //inspector.visit("headerBuffer", headerBuffer);
                 inspector.visit("copyBuffer", copyBuffer);
                 inspector.visit("strategy", strategy);
+            }
+
+            @Override
+            public byte[] getObjectByte(int index)
+            {
+                try {
+                    checkIndex(index);
+
+                    final int startOffset;
+                    final int endOffset;
+
+                    if (index == 0) {
+                        startOffset = Integer.BYTES;
+                        endOffset = getIntFromHeaderBuffer(0);
+                    }
+                    else {
+                        int headerPosition = (index - 1) * Integer.BYTES;
+                        startOffset = getIntFromHeaderBuffer(headerPosition) + Integer.BYTES;
+                        endOffset = getIntFromHeaderBuffer(headerPosition + Integer.BYTES);
+                    }
+                    return bufferedIndexedGetByteArray(copyBuffer, startOffset, endOffset);
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
             }
         };
     }

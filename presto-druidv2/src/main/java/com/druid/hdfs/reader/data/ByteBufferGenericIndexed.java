@@ -209,6 +209,29 @@ public class ByteBufferGenericIndexed<T>
         }
 
         @Nullable
+        byte[] bufferedIndexedGetByteArray(ByteBuffer copyValueBuffer, int startOffset, int endOffset)
+        {
+            int size = endOffset - startOffset;
+            // When size is 0 and SQL compatibility is enabled also check for null marker before returning null.
+            // When SQL compatibility is not enabled return null for both null as well as empty string case.
+            if (size == 0 && (NullHandling.replaceWithDefault()
+                    || copyValueBuffer.get(startOffset - Integer.BYTES) == NULL_VALUE_SIZE_MARKER)) {
+                return null;
+            }
+            lastReadSize = size;
+
+            // ObjectStrategy.fromByteBuffer() is allowed to reset the limit of the buffer. So if the limit is changed,
+            // position() call in the next line could throw an exception, if the position is set beyond the new limit. clear()
+            // sets the limit to the maximum possible, the capacity. It is safe to reset the limit to capacity, because the
+            // value buffer(s) initial limit equals to capacity.
+            copyValueBuffer.clear();
+            copyValueBuffer.position(startOffset);
+            byte[] bytes = new byte[size];
+            copyValueBuffer.get(bytes);
+            return bytes;
+        }
+
+        @Nullable
         T bufferedIndexedGet(ByteBuffer copyValueBuffer, int startOffset, int endOffset)
         {
             int size = endOffset - startOffset;
@@ -250,6 +273,8 @@ public class ByteBufferGenericIndexed<T>
         {
             return ByteBufferGenericIndexed.this.iterator();
         }
+
+        abstract byte[] getObjectByte(int index);
     }
 
     public ByteBufferGenericIndexed<T>.BufferIndexed singleThreaded()
@@ -288,6 +313,26 @@ public class ByteBufferGenericIndexed<T>
                 inspector.visit("headerBuffer", headerBuffer);
                 inspector.visit("copyBuffer", copyBuffer);
                 inspector.visit("strategy", strategy);
+            }
+
+            @Override
+            public byte[] getObjectByte(int index)
+            {
+                checkIndex(index);
+
+                final int startOffset;
+                final int endOffset;
+
+                if (index == 0) {
+                    startOffset = Integer.BYTES;
+                    endOffset = headerBuffer.getInt(0);
+                }
+                else {
+                    int headerPosition = (index - 1) * Integer.BYTES;
+                    startOffset = headerBuffer.getInt(headerPosition) + Integer.BYTES;
+                    endOffset = headerBuffer.getInt(headerPosition + Integer.BYTES);
+                }
+                return bufferedIndexedGetByteArray(copyBuffer, startOffset, endOffset);
             }
         };
     }
