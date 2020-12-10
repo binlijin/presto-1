@@ -65,6 +65,7 @@ import org.roaringbitmap.IntIterator;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -184,7 +185,7 @@ public class HDFSIndexIO
 //            if (theVersion != V9_VERSION) {
 //                throw new IAE("Expected version[9], got[%d]", theVersion);
 //            }
-
+            List<FSDataInputStream> fsDataInputStreamList = new ArrayList<>();
             HDFSSmooshedFileMapper smooshedFiles = HDFSSmooshedFileMapper.load(fileSystem, inDir);
 
             HDFSMetadata indexMetadata = smooshedFiles.mapFile("index.drd");
@@ -193,6 +194,7 @@ public class HDFSIndexIO
             Path smooshFile = new Path(inDir, fileName);
             long hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
             FSDataInputStream is = fileSystem.open(smooshFile);
+            fsDataInputStreamList.add(is);
             int fileSize = indexMetadata.getEndOffset() - indexMetadata.getStartOffset();
             byte[] buffer = new byte[fileSize];
             // 直接一次读取index.drd的数据
@@ -244,6 +246,7 @@ public class HDFSIndexIO
             if (!fileName.equals(metaDataDrdfileName)) {
                 smooshFile = new Path(inDir, metaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                fsDataInputStreamList.add(is);
                 hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                 fileName = metaDataDrdfileName;
             }
@@ -296,6 +299,7 @@ public class HDFSIndexIO
                 if (!fileName.equals(columnMetaDataDrdfileName)) {
                     smooshFile = new Path(inDir, columnMetaDataDrdfileName);
                     is = fileSystem.open(smooshFile);
+                    fsDataInputStreamList.add(is);
                     hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                     fileName = columnMetaDataDrdfileName;
                     hdfsBufferDataInputSource =
@@ -345,6 +349,7 @@ public class HDFSIndexIO
             if (timeMetaDataDrdfileName.equals(fileName)) {
                 smooshFile = new Path(inDir, timeMetaDataDrdfileName);
                 is = fileSystem.open(smooshFile);
+                fsDataInputStreamList.add(is);
                 hdfsFileSize = fileSystem.getFileStatus(smooshFile).getLen();
                 fileName = timeMetaDataDrdfileName;
                 hdfsBufferDataInputSource =
@@ -377,6 +382,7 @@ public class HDFSIndexIO
 
             Indexed<String> indexed = new ListIndexed<>(selectCs);
             final QueryableIndex index = new HDFSSimpleQueryableIndex(
+                    fsDataInputStreamList,
                     dataInterval,
                     indexed,
                     segmentBitmapSerdeFactory.getBitmapFactory(),

@@ -13,9 +13,11 @@
  */
 package com.druid.hdfs.reader;
 
+import com.druid.hdfs.reader.utils.HDFSIOUtils;
 import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -37,9 +39,10 @@ public class HDFSSmooshedFileMapper
         Path metaFile = HDFSFileSmoosher.metaFile(baseDir);
 
         BufferedReader in = null;
+        FSDataInputStream fsDataInputStream = null;
         try {
-            in = new BufferedReader(
-                    new InputStreamReader(fs.open(metaFile), StandardCharsets.UTF_8));
+            fsDataInputStream = fs.open(metaFile);
+            in = new BufferedReader(new InputStreamReader(fsDataInputStream, StandardCharsets.UTF_8));
 
             String line = in.readLine();
             if (line == null) {
@@ -75,6 +78,7 @@ public class HDFSSmooshedFileMapper
             return new HDFSSmooshedFileMapper(outFiles, internalFiles);
         }
         finally {
+            HDFSIOUtils.closeQuietly(fsDataInputStream);
             Closeables.close(in, false);
         }
     }

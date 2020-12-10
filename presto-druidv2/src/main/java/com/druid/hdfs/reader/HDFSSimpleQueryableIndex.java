@@ -13,6 +13,7 @@
  */
 package com.druid.hdfs.reader;
 
+import com.druid.hdfs.reader.utils.HDFSIOUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -29,6 +30,7 @@ import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.Indexed;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -45,6 +47,7 @@ public class HDFSSimpleQueryableIndex
         implements QueryableIndex
 {
     private static final Logger LOG = Logger.get(HDFSSimpleQueryableIndex.class);
+    private final List<FSDataInputStream> fsDataInputStreamList;
     private final Interval dataInterval;
     private final List<String> columnNames;
     private final Indexed<String> availableDimensions;
@@ -56,6 +59,7 @@ public class HDFSSimpleQueryableIndex
     private AtomicLong readTimeNanos;
 
     public HDFSSimpleQueryableIndex(
+            List<FSDataInputStream> fsDataInputStreamList,
             Interval dataInterval,
             Indexed<String> dimNames,
             BitmapFactory bitmapFactory,
@@ -65,6 +69,7 @@ public class HDFSSimpleQueryableIndex
             boolean lazy,
             AtomicLong readTimeNanos)
     {
+        this.fsDataInputStreamList = fsDataInputStreamList;
         requireNonNull(columns.get(ColumnHolder.TIME_COLUMN_NAME));
         this.dataInterval = requireNonNull(dataInterval, "dataInterval");
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
@@ -158,6 +163,9 @@ public class HDFSSimpleQueryableIndex
             catch (Exception e) {
                 LOG.warn("close columnHolder error", e);
             }
+        }
+        for (FSDataInputStream fsDataInputStream : fsDataInputStreamList) {
+            HDFSIOUtils.closeQuietly(fsDataInputStream);
         }
     }
 

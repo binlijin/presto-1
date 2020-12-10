@@ -21,6 +21,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import net.jpountz.util.Native;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.BoundDimFilter;
@@ -48,6 +49,7 @@ public class DruidFilterConverter
 
     static {
         NullHandling.initializeForTests();
+        Native.load();
     }
 
     private DruidFilterConverter()

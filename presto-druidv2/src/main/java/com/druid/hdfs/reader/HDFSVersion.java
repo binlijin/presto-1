@@ -13,6 +13,7 @@
  */
 package com.druid.hdfs.reader;
 
+import com.druid.hdfs.reader.utils.HDFSIOUtils;
 import com.google.common.primitives.Ints;
 import org.apache.druid.java.util.common.IOE;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -35,6 +36,7 @@ public class HDFSVersion
             FSDataInputStream is = fileSystem.open(versionFile);
             byte[] content = new byte[4];
             IOUtils.readFully(is, content, 0, content.length);
+            HDFSIOUtils.closeQuietly(is);
             return Ints.fromByteArray(content);
         }
 
