@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.druid.ingestion.DruidIngestionTableHandle;
 import io.prestosql.druid.metadata.DruidColumnInfo;
 import io.prestosql.druid.metadata.DruidColumnType;
+import io.prestosql.druid.metadata.DruidSegmentInfo;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -57,6 +58,7 @@ import java.util.stream.Collectors;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DruidMetadata
@@ -67,6 +69,8 @@ public class DruidMetadata
     private final DruidClient druidClient;
     private final LoadingCache<Object, List<String>> allTablesCache;
     private final LoadingCache<String, List<DruidColumnInfo>> druidTableColumnCache;
+    private final LoadingCache<String, List<String>> druidTableSegmentIdCache;
+    private final LoadingCache<String, DruidSegmentInfo> druidSegmentInfoCache;
 
     @Inject
     public DruidMetadata(DruidConfig config, DruidClient druidClient, @ForDruidClient Executor executor)
@@ -88,6 +92,29 @@ public class DruidMetadata
                                 return druidClient.getColumnDataType(tableName);
                             }
                         }, executor));
+        this.druidTableSegmentIdCache = CacheBuilder.newBuilder()
+                .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
+                .build(asyncReloading(new CacheLoader<>()
+                {
+                    @Override
+                    public List<String> load(String tableName)
+                            throws Exception
+                    {
+                        return druidClient.getDataSegmentId(tableName);
+                    }
+                }, executor));
+        // segments do not change, but will delete.
+        this.druidSegmentInfoCache = CacheBuilder.newBuilder()
+                .refreshAfterWrite(metadataCacheExpiryMillis * 5, TimeUnit.MILLISECONDS)
+                .build(asyncReloading(new CacheLoader<>()
+                {
+                    @Override
+                    public DruidSegmentInfo load(String segmentId)
+                            throws Exception
+                    {
+                        return druidClient.getSingleSegmentInfo(segmentId);
+                    }
+                }, executor));
         this.druidClient = requireNonNull(druidClient, "druidClient is null");
     }
 
@@ -235,6 +262,17 @@ public class DruidMetadata
     public List<DruidColumnInfo> getDruidColumns(String tableName)
     {
         return getFromCache(druidTableColumnCache, tableName);
+    }
+
+    public List<String> getDruidDataSegmentIds(String tableName)
+    {
+        return getFromCache(druidTableSegmentIdCache, tableName);
+    }
+
+    public DruidSegmentInfo getDruidSingleSegmentInfo(String dataSource, String segmentId)
+    {
+        String path = format("datasources/%s/segments/%s", dataSource, segmentId);
+        return getFromCache(druidSegmentInfoCache, path);
     }
 
     private List<String> getDruidTableNames()

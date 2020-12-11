@@ -131,6 +131,19 @@ public class DruidClient
         return httpClient.execute(request, createJsonResponseHandler(SEGMENT_INFO_CODEC));
     }
 
+    public DruidSegmentInfo getSingleSegmentInfo(String segmentPath)
+    {
+        URI uri = uriBuilderFrom(druidCoordinator)
+                .replacePath(METADATA_PATH)
+                .appendPath(segmentPath)
+                .build();
+        Request request = setContentTypeHeaders(prepareGet())
+                .setUri(uri)
+                .build();
+
+        return httpClient.execute(request, createJsonResponseHandler(SEGMENT_INFO_CODEC));
+    }
+
     public InputStream getData(String dql)
     {
         return httpClient.execute(prepareDataQuery(dql), new StreamingJsonResponseHandler());

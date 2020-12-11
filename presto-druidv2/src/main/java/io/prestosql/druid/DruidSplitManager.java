@@ -38,11 +38,13 @@ public class DruidSplitManager
 {
     private static final Logger LOG = Logger.get(DruidSplitManager.class);
 
+    private final DruidMetadata metadata;
     private final DruidClient druidClient;
 
     @Inject
-    public DruidSplitManager(DruidClient druidClient)
+    public DruidSplitManager(DruidMetadata metadata, DruidClient druidClient)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.druidClient = requireNonNull(druidClient, "druid client is null");
     }
 
@@ -62,11 +64,11 @@ public class DruidSplitManager
             //table.getDql().get()
             return new FixedSplitSource(ImmutableList.of(createBrokerSplit()));
         }
-        List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
+        List<String> segmentIds = metadata.getDruidDataSegmentIds(table.getTableName());
         // TODO according to timestamp filter segments
         // TODO 根据时间范围过滤segments
         List<DruidSplit> splits = segmentIds.stream()
-                .map(id -> druidClient.getSingleSegmentInfo(table.getTableName(), id))
+                .map(id -> metadata.getDruidSingleSegmentInfo(table.getTableName(), id))
                 .map(info -> createSegmentSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
                 .collect(toImmutableList());
         if (LOG.isDebugEnabled()) {
