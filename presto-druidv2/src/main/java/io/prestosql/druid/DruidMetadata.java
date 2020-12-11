@@ -13,12 +13,16 @@
  */
 package io.prestosql.druid;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.druid.ingestion.DruidIngestionTableHandle;
 import io.prestosql.druid.metadata.DruidColumnInfo;
 import io.prestosql.druid.metadata.DruidColumnType;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -45,8 +49,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -54,11 +62,32 @@ import static java.util.Objects.requireNonNull;
 public class DruidMetadata
         implements ConnectorMetadata
 {
+    private static final Object ALL_TABLES_CACHE_KEY = new Object();
+
     private final DruidClient druidClient;
+    private final LoadingCache<Object, List<String>> allTablesCache;
+    private final LoadingCache<String, List<DruidColumnInfo>> druidTableColumnCache;
 
     @Inject
-    public DruidMetadata(DruidClient druidClient)
+    public DruidMetadata(DruidConfig config, DruidClient druidClient, @ForDruidClient Executor executor)
     {
+        requireNonNull(config, "config is null");
+        long metadataCacheExpiryMillis = config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
+        this.allTablesCache = CacheBuilder.newBuilder()
+                .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
+                .build(asyncReloading(CacheLoader.from(druidClient::getAllTables), executor));
+        this.druidTableColumnCache =
+                CacheBuilder.newBuilder()
+                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
+                        .build(asyncReloading(new CacheLoader<>()
+                        {
+                            @Override
+                            public List<DruidColumnInfo> load(String tableName)
+                                    throws Exception
+                            {
+                                return druidClient.getColumnDataType(tableName);
+                            }
+                        }, executor));
         this.druidClient = requireNonNull(druidClient, "druidClient is null");
     }
 
@@ -71,7 +100,7 @@ public class DruidMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return druidClient.getTables().stream()
+        return getDruidTableNames().stream()
                 .filter(name -> name.equals(tableName.getTableName()))
                 .map(name -> DruidTableHandle.fromSchemaTableName(tableName))
                 .findFirst()
@@ -82,7 +111,7 @@ public class DruidMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DruidTableHandle druidTable = (DruidTableHandle) tableHandle;
-        List<ColumnMetadata> columns = druidClient.getColumnDataType(druidTable.getTableName()).stream()
+        List<ColumnMetadata> columns = getDruidColumns(druidTable.getTableName()).stream()
                 .map(column -> toColumnMetadata(column))
                 .collect(toImmutableList());
 
@@ -92,7 +121,7 @@ public class DruidMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return druidClient.getTables().stream()
+        return getDruidTableNames().stream()
                 .map(tableName -> new SchemaTableName(druidClient.getSchema(), tableName))
                 .collect(toImmutableList());
     }
@@ -101,7 +130,7 @@ public class DruidMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DruidTableHandle druidTable = (DruidTableHandle) tableHandle;
-        return druidClient.getColumnDataType(druidTable.getTableName()).stream()
+        return getDruidColumns(druidTable.getTableName()).stream()
                 .collect(toImmutableMap(DruidColumnInfo::getColumnName, column -> toColumnHandle(column)));
     }
 
@@ -130,7 +159,7 @@ public class DruidMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DruidTableHandle druidTableHandle = (DruidTableHandle) tableHandle;
-        List<DruidColumnInfo> columns = druidClient.getColumnDataType(druidTableHandle.getTableName());
+        List<DruidColumnInfo> columns = getDruidColumns(druidTableHandle.getTableName());
         return new DruidIngestionTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName(), columns);
     }
 
@@ -201,6 +230,30 @@ public class DruidMetadata
     public boolean usesLegacyTableLayouts()
     {
         return false;
+    }
+
+    public List<DruidColumnInfo> getDruidColumns(String tableName)
+    {
+        return getFromCache(druidTableColumnCache, tableName);
+    }
+
+    private List<String> getDruidTableNames()
+    {
+        return getFromCache(allTablesCache, ALL_TABLES_CACHE_KEY);
+    }
+
+    private static <K, V> V getFromCache(LoadingCache<K, V> cache, K key)
+    {
+        V value = cache.getIfPresent(key);
+        if (value != null) {
+            return value;
+        }
+        try {
+            return cache.get(key);
+        }
+        catch (ExecutionException e) {
+            throw new PrestoException(DruidErrorCode.DRUID_METADATA_ERROR, Optional.empty(), "Cannot fetch from cache " + key, e.getCause());
+        }
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

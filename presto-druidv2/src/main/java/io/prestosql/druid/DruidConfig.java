@@ -18,6 +18,8 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -26,6 +28,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class DruidConfig
 {
@@ -39,6 +42,7 @@ public class DruidConfig
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
     private int maxBatchSize = 1024;
+    private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
     public enum DruidAuthenticationType
     {
@@ -205,6 +209,20 @@ public class DruidConfig
     public DruidConfig setMaxBatchSize(int maxBatchSize)
     {
         this.maxBatchSize = maxBatchSize;
+        return this;
+    }
+
+    @MinDuration("0s")
+    @NotNull
+    public Duration getMetadataCacheExpiry()
+    {
+        return metadataCacheExpiry;
+    }
+
+    @Config("druid.metadata-expiry")
+    public DruidConfig setMetadataCacheExpiry(Duration metadataCacheExpiry)
+    {
+        this.metadataCacheExpiry = metadataCacheExpiry;
         return this;
     }
 }

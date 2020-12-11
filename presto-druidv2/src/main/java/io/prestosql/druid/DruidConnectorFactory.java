@@ -51,7 +51,7 @@ public class DruidConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new DruidModule(),
+                    new DruidModule(catalogName),
                     new DruidAuthenticationModule(),
                     new CachingModule(),
                     binder -> {

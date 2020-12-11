@@ -19,13 +19,20 @@ import com.google.inject.Scopes;
 import io.prestosql.druid.ingestion.DruidPageSinkProvider;
 import io.prestosql.druid.ingestion.DruidPageWriter;
 
+import java.util.concurrent.Executor;
+
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DruidModule
         implements Module
 {
-    public DruidModule()
+    private final String catalogName;
+
+    public DruidModule(String catalogName)
     {
+        this.catalogName = catalogName;
     }
 
     @Override
@@ -45,5 +52,7 @@ public class DruidModule
         binder.bind(DruidSessionProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(DruidCachingFileSystem.class).in(Scopes.SINGLETON);
+        binder.bind(Executor.class).annotatedWith(ForDruidClient.class)
+                .toInstance(newCachedThreadPool(threadsNamed("druid-metadata-fetcher-" + catalogName)));
     }
 }

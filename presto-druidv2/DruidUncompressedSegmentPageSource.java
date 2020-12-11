@@ -76,6 +76,8 @@ public class DruidUncompressedSegmentPageSource
     @Override public Page getNextPage()
     {
         long start = System.nanoTime();
+        //HDFSDecompressingByteBufferObjectStrategy.compressTime.putIfAbsent(Thread.currentThread(), new AtomicLong());
+        //HDFSDecompressingByteBufferObjectStrategy.compressNum.putIfAbsent(Thread.currentThread(), new AtomicLong());
         batchId++;
         int batchSize = segmentReader.nextBatch();
         if (batchSize <= 0) {
@@ -91,6 +93,10 @@ public class DruidUncompressedSegmentPageSource
         completedBytes += page.getSizeInBytes();
         completedPositions += page.getPositionCount();
         buildPageTime += (System.nanoTime() - start);
+        //compressTime += HDFSDecompressingByteBufferObjectStrategy.compressTime.get(Thread.currentThread()).get();
+        //compressNum += HDFSDecompressingByteBufferObjectStrategy.compressNum.get(Thread.currentThread()).get();
+        //HDFSDecompressingByteBufferObjectStrategy.compressTime.get(Thread.currentThread()).set(0);
+        //HDFSDecompressingByteBufferObjectStrategy.compressNum.get(Thread.currentThread()).set(0);
         return page;
     }
 

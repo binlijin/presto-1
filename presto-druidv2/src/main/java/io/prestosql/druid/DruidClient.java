@@ -99,7 +99,7 @@ public class DruidClient
         return ImmutableList.of(druidSchema);
     }
 
-    public List<String> getTables()
+    public List<String> getAllTables()
     {
         return httpClient.execute(prepareMetadataQuery(LIST_TABLE_QUERY), createJsonResponseHandler(LIST_TABLE_NAME_CODEC)).stream()
                 .map(DruidTableInfo::getTableName)
