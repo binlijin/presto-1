@@ -182,7 +182,7 @@ public class FileBlock
 
     public void get(byte[] dst, int offset, int length)
     {
-        this.buf.get(dst, offset, length);
+        this.buf.duplicate().get(dst, offset, length);
     }
 
     public byte[] getData()

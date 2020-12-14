@@ -88,7 +88,8 @@ public class BlockCacheCacheManager
             if (cachedBlock != null) {
                 //System.out.println("get from cache cacheKey = " + cacheKey + ", dataLen = " + cachedBlock.getSerializedLength());
                 if (cachedBlock.getSerializedLength() >= request.getLength()) {
-                    cachedBlock.get(buffer, offset, request.getLength());
+                    cachedBlock.getBufferReadOnly().get(buffer, offset, request.getLength());
+                    // TODO
                     cachedBlock.release();
                     return CacheResult.HIT;
                 }
