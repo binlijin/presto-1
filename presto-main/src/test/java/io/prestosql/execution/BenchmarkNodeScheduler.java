@@ -25,16 +25,17 @@ import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.util.FinalizerService;
@@ -70,6 +71,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -260,13 +262,13 @@ public class BenchmarkNodeScheduler
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return true;
+            return NO_PREFERENCE;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return hosts;
         }

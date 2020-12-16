@@ -18,12 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsSplit
@@ -71,14 +73,19 @@ public class TpcdsSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
     }
 
     @JsonProperty
-    @Override
     public List<HostAddress> getAddresses()
+    {
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

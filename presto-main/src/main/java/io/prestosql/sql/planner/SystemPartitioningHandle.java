@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.execution.scheduler.NodeScheduler;
-import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.operator.BucketPartitionFunction;
 import io.prestosql.operator.HashGenerator;

@@ -25,6 +25,7 @@ import io.prestosql.execution.scheduler.ScheduleResult.BlockedReason;
 import io.prestosql.execution.scheduler.group.DynamicLifespanScheduler;
 import io.prestosql.execution.scheduler.group.FixedLifespanScheduler;
 import io.prestosql.execution.scheduler.group.LifespanScheduler;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.StageExecutionDescriptor;

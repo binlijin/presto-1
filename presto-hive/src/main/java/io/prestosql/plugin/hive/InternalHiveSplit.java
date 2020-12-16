@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -53,6 +54,7 @@ public class InternalHiveSplit
     private final OptionalInt bucketNumber;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
@@ -74,6 +76,7 @@ public class InternalHiveSplit
             OptionalInt bucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
+            NodeSelectionStrategy nodeSelectionStrategy,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
@@ -88,6 +91,7 @@ public class InternalHiveSplit
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(blocks, "blocks is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(acidInfo, "acidInfo is null");
@@ -104,6 +108,7 @@ public class InternalHiveSplit
         this.bucketNumber = bucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
@@ -168,6 +173,11 @@ public class InternalHiveSplit
     public boolean isForceLocalScheduling()
     {
         return forceLocalScheduling;
+    }
+
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
+        return nodeSelectionStrategy;
     }
 
     public TableToPartitionMapping getTableToPartitionMapping()

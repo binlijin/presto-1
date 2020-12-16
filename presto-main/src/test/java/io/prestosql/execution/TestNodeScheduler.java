@@ -29,17 +29,19 @@ import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.SplitPlacementResult;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
-import io.prestosql.execution.scheduler.UniformNodeSelector;
 import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
+import io.prestosql.execution.scheduler.nodeselection.UniformNodeSelector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
@@ -69,6 +71,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -152,7 +156,7 @@ public class TestNodeScheduler
         Set<Split> splits = ImmutableSet.of(split);
 
         Map.Entry<InternalNode, Split> assignment = getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
-        assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
+        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(ImmutableList.of()).get(0));
         assertEquals(assignment.getValue(), split);
     }
 
@@ -243,7 +247,7 @@ public class TestNodeScheduler
         int rack1 = 0;
         int rack2 = 0;
         for (Split split : unassigned) {
-            String rack = topology.locate(split.getAddresses().get(0)).getSegments().get(0);
+            String rack = topology.locate(split.getPreferredNodes(ImmutableList.of()).get(0)).getSegments().get(0);
             switch (rack) {
                 case "rack1":
                     rack1++;
@@ -767,6 +771,99 @@ public class TestNodeScheduler
         assertTrue(assignments3.isEmpty());
     }
 
+    @Test
+    public void testAffinityAssignmentNotSupported()
+    {
+        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node1);
+        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node2);
+        InternalNode node3 = new InternalNode("node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node3);
+
+        Set<Split> splits = new HashSet<>();
+        splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(HostAddress.fromString("127.0.0.1:10")), Lifespan.taskWide()));
+        splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(HostAddress.fromString("127.0.0.1:10")), Lifespan.taskWide()));
+        SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
+        Set<InternalNode> internalNodes = splitPlacementResult.getAssignments().keySet();
+        // Split doesn't support affinity schedule, fall back to random schedule
+        assertEquals(internalNodes.size(), 2);
+    }
+
+    @Test
+    public void testAffinityAssignment()
+    {
+        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node1);
+        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node2);
+        InternalNode node3 = new InternalNode("node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node3);
+
+        Set<Split> splits = new HashSet<>();
+
+        // Adding one more split (1 % 3 = 1), 1 splits will be distributed to 1 nodes
+        splits.add(new Split(CONNECTOR_ID, new TestAffinitySplitRemote(1), Lifespan.taskWide()));
+        SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
+        Set<InternalNode> internalNodes = splitPlacementResult.getAssignments().keySet();
+        assertEquals(internalNodes.size(), 1);
+
+        // Adding one more split (2 % 3 = 2), 2 splits will be distributed to 2 nodes
+        splits.add(new Split(CONNECTOR_ID, new TestAffinitySplitRemote(2), Lifespan.taskWide()));
+        splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
+        Set<InternalNode> internalNodesSecondCall = splitPlacementResult.getAssignments().keySet();
+        assertEquals(internalNodesSecondCall.size(), 2);
+
+        // adding one more split(4 % 3 = 1) that will fall into the same slots, 3 splits will be distributed to 2 nodes still
+        splits.add(new Split(CONNECTOR_ID, new TestAffinitySplitRemote(4), Lifespan.taskWide()));
+        splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
+        assertEquals(splitPlacementResult.getAssignments().keySet().size(), 2);
+
+        // adding one more split(3 % 3 = 0) that will fall into different slots, 3 splits will be distributed to 3 nodes
+        splits.add(new Split(CONNECTOR_ID, new TestAffinitySplitRemote(3), Lifespan.taskWide()));
+        splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
+        assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
+    }
+
+    @Test
+    public void testHardAffinityAssignment()
+    {
+        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node1);
+        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node2);
+        InternalNode node3 = new InternalNode("node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
+        nodeManager.addNode(CONNECTOR_ID, node3);
+
+        Set<Split> splits = new HashSet<>();
+
+        // Adding one more split (1 % 3 = 1), 1 splits will be distributed to 1 nodes
+        splits.add(new Split(CONNECTOR_ID, new TestHardAffinitySplitRemote(), Lifespan.taskWide()));
+        splits.add(new Split(CONNECTOR_ID, new TestHardAffinitySplitRemote(), Lifespan.taskWide()));
+        splits.add(new Split(CONNECTOR_ID, new TestHardAffinitySplitRemote(), Lifespan.taskWide()));
+        SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
+        for (Split split : splitPlacementResult.getAssignments().values()) {
+            assertTrue(split.getSplitContext().isCacheable());
+        }
+    }
+
+    private List<RemoteTask> getRemoteTableScanTask(SplitPlacementResult splitPlacementResult)
+    {
+        Map<InternalNode, RemoteTask> taskMap = new HashMap<>();
+        Multimap<InternalNode, Split> assignments = splitPlacementResult.getAssignments();
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
+        int task = 0;
+        for (InternalNode node : assignments.keySet()) {
+            TaskId taskId = new TaskId("test", 1, task);
+            task++;
+            MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+            remoteTask.startSplits(25);
+            nodeTaskMap.addTask(node, remoteTask);
+            taskMap.put(node, remoteTask);
+        }
+        return ImmutableList.copyOf(taskMap.values());
+    }
+
     private static class TestSplitLocal
             implements ConnectorSplit
     {
@@ -783,13 +880,13 @@ public class TestNodeScheduler
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return true;
+            return NO_PREFERENCE;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of(address);
         }
@@ -813,13 +910,13 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return false;
+            return HARD_AFFINITY;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of(HostAddress.fromString("10.0.0.1:11"));
         }
@@ -851,13 +948,13 @@ public class TestNodeScheduler
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return true;
+            return NO_PREFERENCE;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return hosts;
         }
@@ -866,6 +963,51 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+    }
+
+    private static class TestAffinitySplitRemote
+            extends TestSplitRemote
+    {
+        private int scheduleIdentifierId;
+
+        public TestAffinitySplitRemote(int scheduleIdentifierId)
+        {
+            super();
+            this.scheduleIdentifierId = scheduleIdentifierId;
+        }
+
+        @Override
+        public NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return NodeSelectionStrategy.SOFT_AFFINITY;
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        {
+            return ImmutableList.of(sortedCandidates.get(scheduleIdentifierId % sortedCandidates.size()));
+        }
+    }
+
+    private static class TestHardAffinitySplitRemote
+            extends TestSplitRemote
+    {
+        public TestHardAffinitySplitRemote()
+        {
+            super();
+        }
+
+        @Override
+        public NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return HARD_AFFINITY;
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        {
+            return ImmutableList.of(sortedCandidates.get(new Random().nextInt(sortedCandidates.size())));
         }
     }
 

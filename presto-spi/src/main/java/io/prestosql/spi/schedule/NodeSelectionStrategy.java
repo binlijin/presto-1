@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.prestosql.spi.schedule;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
-
-import java.util.Optional;
-
-public interface NodeSelectorFactory
+public enum NodeSelectionStrategy
 {
-    NodeSelector createNodeSelector(Optional<CatalogName> catalogName);
+    HARD_AFFINITY,
+    SOFT_AFFINITY,
+    NO_PREFERENCE
 }

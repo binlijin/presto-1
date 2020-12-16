@@ -18,49 +18,58 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 
 public class TestingSplit
         implements ConnectorSplit
 {
     private static final HostAddress localHost = HostAddress.fromString("127.0.0.1");
 
-    private final boolean remotelyAccessible;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final List<HostAddress> addresses;
 
     public static TestingSplit createLocalSplit()
     {
-        return new TestingSplit(false, ImmutableList.of(localHost));
+        return new TestingSplit(HARD_AFFINITY, ImmutableList.of(localHost));
     }
 
     public static TestingSplit createEmptySplit()
     {
-        return new TestingSplit(false, ImmutableList.of());
+        return new TestingSplit(HARD_AFFINITY, ImmutableList.of());
     }
 
     public static TestingSplit createRemoteSplit()
     {
-        return new TestingSplit(true, ImmutableList.of());
+        return new TestingSplit(NO_PREFERENCE, ImmutableList.of());
     }
 
     @JsonCreator
-    public TestingSplit(@JsonProperty("remotelyAccessible") boolean remotelyAccessible, @JsonProperty("addresses") List<HostAddress> addresses)
+    public TestingSplit(@JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy, @JsonProperty("addresses") List<HostAddress> addresses)
     {
         this.addresses = addresses;
-        this.remotelyAccessible = remotelyAccessible;
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
     }
 
     @JsonProperty
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return remotelyAccessible;
+        return nodeSelectionStrategy;
     }
 
     @JsonProperty
-    @Override
     public List<HostAddress> getAddresses()
+    {
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

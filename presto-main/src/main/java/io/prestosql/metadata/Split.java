@@ -19,10 +19,14 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.SplitContext;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.connector.SplitContext.NON_CACHEABLE;
 import static java.util.Objects.requireNonNull;
 
 public final class Split
@@ -30,16 +34,25 @@ public final class Split
     private final CatalogName catalogName;
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
+    private final SplitContext splitContext;
+
+    // TODO: inline
+    public Split(CatalogName catalogName, ConnectorSplit connectorSplit, Lifespan lifespan)
+    {
+        this(catalogName, connectorSplit, lifespan, NON_CACHEABLE);
+    }
 
     @JsonCreator
     public Split(
             @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
-            @JsonProperty("lifespan") Lifespan lifespan)
+            @JsonProperty("lifespan") Lifespan lifespan,
+            @JsonProperty("splitContext") SplitContext splitContext)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.splitContext = requireNonNull(splitContext, "splitContext is null");
     }
 
     @JsonProperty
@@ -60,19 +73,25 @@ public final class Split
         return lifespan;
     }
 
+    @JsonProperty
+    public SplitContext getSplitContext()
+    {
+        return splitContext;
+    }
+
     public Object getInfo()
     {
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return connectorSplit.getAddresses();
+        return connectorSplit.getPreferredNodes(sortedCandidates);
     }
 
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return connectorSplit.isRemotelyAccessible();
+        return connectorSplit.getNodeSelectionStrategy();
     }
 
     @Override
@@ -82,6 +101,30 @@ public final class Split
                 .add("catalogName", catalogName)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)
+                .add("splitContext", splitContext)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Split split = (Split) o;
+        return catalogName.equals(split.catalogName) &&
+                connectorSplit.equals(split.connectorSplit) &&
+                lifespan.equals(split.lifespan);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        // Requires connectorSplit's hash function to be set up correctly
+        return Objects.hash(catalogName, connectorSplit, lifespan);
     }
 }

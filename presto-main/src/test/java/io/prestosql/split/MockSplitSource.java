@@ -23,6 +23,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -34,6 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static io.prestosql.split.MockSplitSource.Action.DO_NOTHING;
 import static io.prestosql.split.MockSplitSource.Action.FINISH;
 
@@ -157,13 +159,13 @@ public class MockSplitSource
             implements ConnectorSplit
     {
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return false;
+            return HARD_AFFINITY;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of();
         }

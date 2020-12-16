@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
@@ -46,6 +47,7 @@ import static java.util.Locale.ENGLISH;
 public final class HiveSessionProperties
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -135,6 +137,15 @@ public final class HiveSessionProperties
                         "Only schedule splits on workers colocated with data node",
                         hiveConfig.isForceLocalScheduling(),
                         false),
+                new PropertyMetadata<>(
+                        NODE_SELECTION_STRATEGY,
+                        "Node affinity selection strategy",
+                        VARCHAR,
+                        NodeSelectionStrategy.class,
+                        hiveConfig.getNodeSelectionStrategy(),
+                        false,
+                        value -> NodeSelectionStrategy.valueOf((String) value),
+                        NodeSelectionStrategy::toString),
                 new PropertyMetadata<>(
                         INSERT_EXISTING_PARTITIONS_BEHAVIOR,
                         "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
@@ -400,6 +411,11 @@ public final class HiveSessionProperties
     public static boolean isForceLocalScheduling(ConnectorSession session)
     {
         return session.getProperty(FORCE_LOCAL_SCHEDULING, Boolean.class);
+    }
+
+    public static NodeSelectionStrategy getNodeSelectionStrategy(ConnectorSession session)
+    {
+        return session.getProperty(NODE_SELECTION_STRATEGY, NodeSelectionStrategy.class);
     }
 
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)

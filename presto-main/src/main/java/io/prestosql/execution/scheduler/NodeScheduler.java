@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;

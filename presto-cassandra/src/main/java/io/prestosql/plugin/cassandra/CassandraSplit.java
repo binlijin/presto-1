@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraSplit
@@ -59,16 +61,21 @@ public class CassandraSplit
     }
 
     @JsonProperty
-    @Override
     public List<HostAddress> getAddresses()
     {
         return addresses;
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return true;
+        return addresses;
+    }
+
+    @Override
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
+        return NO_PREFERENCE;
     }
 
     @Override

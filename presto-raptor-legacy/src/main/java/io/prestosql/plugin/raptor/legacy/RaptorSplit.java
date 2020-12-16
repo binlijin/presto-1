@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -27,6 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorSplit
@@ -76,13 +78,18 @@ public class RaptorSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
+    }
+
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

@@ -22,6 +22,7 @@ import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
 import io.prestosql.plugin.raptor.legacy.RaptorMetadata;
+import io.prestosql.plugin.raptor.legacy.RaptorSplit;
 import io.prestosql.plugin.raptor.legacy.RaptorSplitManager;
 import io.prestosql.plugin.raptor.legacy.RaptorTableHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorTransactionHandle;
@@ -175,7 +176,7 @@ public class TestRaptorSplitManager
 
         ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, tableHandle);
         List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
-        assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
+        assertEquals(getOnlyElement(((RaptorSplit) getOnlyElement(batch)).getAddresses()), node.getHostAndPort());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")

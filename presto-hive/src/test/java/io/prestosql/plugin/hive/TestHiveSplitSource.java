@@ -37,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -334,6 +335,7 @@ public class TestHiveSplitSource
                     bucketNumber,
                     true,
                     false,
+                    NO_PREFERENCE,
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,

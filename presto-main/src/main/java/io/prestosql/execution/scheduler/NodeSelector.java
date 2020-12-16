@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.prestosql.execution.scheduler.nodeselection;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.SplitPlacementResult;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 

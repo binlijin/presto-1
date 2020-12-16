@@ -13,12 +13,28 @@
  */
 package io.prestosql.execution.scheduler;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
+import io.prestosql.metadata.InternalNode;
 
-import java.util.Optional;
+import static java.util.Objects.requireNonNull;
 
-public interface NodeSelectorFactory
+public class InternalNodeInfo
 {
-    NodeSelector createNodeSelector(Optional<CatalogName> catalogName);
+    private final InternalNode internalNode;
+    private final boolean cacheable;
+
+    public InternalNodeInfo(InternalNode internalNode, boolean cacheable)
+    {
+        this.internalNode = requireNonNull(internalNode, "internalNode is null");
+        this.cacheable = cacheable;
+    }
+
+    public InternalNode getInternalNode()
+    {
+        return internalNode;
+    }
+
+    public boolean isCacheable()
+    {
+        return cacheable;
+    }
 }

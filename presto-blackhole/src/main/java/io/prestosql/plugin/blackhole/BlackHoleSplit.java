@@ -16,8 +16,11 @@ package io.prestosql.plugin.blackhole;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 
 public enum BlackHoleSplit
         implements ConnectorSplit
@@ -25,13 +28,13 @@ public enum BlackHoleSplit
     INSTANCE;
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return true;
+        return NO_PREFERENCE;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of();
     }

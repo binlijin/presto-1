@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -39,6 +40,7 @@ import java.util.TimeZone;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -72,6 +74,7 @@ public class HiveConfig
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
+    private NodeSelectionStrategy nodeSelectionStrategy = NO_PREFERENCE;
 
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
@@ -222,6 +225,18 @@ public class HiveConfig
     public HiveConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
     {
         this.writerSortBufferSize = writerSortBufferSize;
+        return this;
+    }
+
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
+        return nodeSelectionStrategy;
+    }
+
+    @Config("hive.node-selection-strategy")
+    public HiveConfig setNodeSelectionStrategy(NodeSelectionStrategy nodeSelectionStrategy)
+    {
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         return this;
     }
 

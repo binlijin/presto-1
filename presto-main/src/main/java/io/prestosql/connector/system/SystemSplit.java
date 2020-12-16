@@ -20,11 +20,13 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class SystemSplit
@@ -50,14 +52,19 @@ public class SystemSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
+    }
+
+    @JsonProperty
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override
-    @JsonProperty
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

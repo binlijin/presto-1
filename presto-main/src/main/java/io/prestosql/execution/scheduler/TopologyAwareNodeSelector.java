@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.prestosql.execution.scheduler.nodeselection;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -21,6 +21,13 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.NetworkLocation;
+import io.prestosql.execution.scheduler.NetworkTopology;
+import io.prestosql.execution.scheduler.NodeAssignmentStats;
+import io.prestosql.execution.scheduler.NodeMap;
+import io.prestosql.execution.scheduler.ResettableRandomizedIterator;
+import io.prestosql.execution.scheduler.SplitPlacementResult;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Split;
@@ -44,7 +51,9 @@ import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionN
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static io.prestosql.execution.scheduler.nodeselection.NodeSelectionUtils.sortedNodes;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -120,9 +129,12 @@ public class TopologyAwareNodeSelector
         Set<NetworkLocation> filledLocations = new HashSet<>();
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
+
+        // todo identify if sorting will cause bottleneck
+        List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
         for (Split split : splits) {
-            if (!split.isRemotelyAccessible()) {
-                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+            if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
+                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
@@ -143,7 +155,7 @@ public class TopologyAwareNodeSelector
             int depth = topologicalSplitCounters.size() - 1;
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getAddresses()) {
+            for (HostAddress host : split.getPreferredNodes(sortedCandidates)) {
                 locations.add(networkTopology.locate(host));
             }
             if (locations.isEmpty()) {

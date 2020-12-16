@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -50,6 +51,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
 import static io.prestosql.plugin.hive.util.HiveUtil.isSplittable;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
@@ -65,6 +68,7 @@ public class InternalHiveSplitFactory
     private final Optional<BucketConversion> bucketConversion;
     private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
 
     public InternalHiveSplitFactory(
@@ -79,6 +83,7 @@ public class InternalHiveSplitFactory
             Optional<BucketConversion> bucketConversion,
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
+            NodeSelectionStrategy nodeSelectionStrategy,
             boolean s3SelectPushdownEnabled)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -91,6 +96,7 @@ public class InternalHiveSplitFactory
         this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
+        this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
@@ -203,6 +209,7 @@ public class InternalHiveSplitFactory
                 bucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
+                (nodeSelectionStrategy == HARD_AFFINITY && !allBlocksHaveAddress(blocks)) ? NO_PREFERENCE : nodeSelectionStrategy,
                 tableToPartitionMapping,
                 bucketConversion,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),

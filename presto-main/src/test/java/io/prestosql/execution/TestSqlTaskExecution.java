@@ -55,6 +55,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -101,6 +102,8 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.spi.connector.SplitContext.NON_CACHEABLE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -692,7 +695,7 @@ public class TestSqlTaskExecution
 
     private ScheduledSplit newScheduledSplit(int sequenceId, PlanNodeId planNodeId, Lifespan lifespan, int begin, int count)
     {
-        return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, new TestingSplit(begin, begin + count), lifespan));
+        return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, new TestingSplit(begin, begin + count), lifespan, NON_CACHEABLE));
     }
 
     public static class Pauser
@@ -1320,13 +1323,13 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return true;
+            return NO_PREFERENCE;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of();
         }

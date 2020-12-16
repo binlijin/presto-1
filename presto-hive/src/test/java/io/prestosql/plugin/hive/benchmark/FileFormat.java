@@ -86,6 +86,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCurs
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -387,6 +388,7 @@ public enum FileFormat
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 false,
+                NO_PREFERENCE,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,

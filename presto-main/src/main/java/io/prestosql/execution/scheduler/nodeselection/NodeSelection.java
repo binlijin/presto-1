@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.prestosql.execution.scheduler.nodeselection;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
+import io.prestosql.metadata.InternalNode;
+import io.prestosql.metadata.Split;
 
-import java.util.Optional;
+import java.util.List;
 
-public interface NodeSelectorFactory
+public interface NodeSelection
 {
-    NodeSelector createNodeSelector(Optional<CatalogName> catalogName);
+    /**
+     *
+     * Pick nodes according to different strategies for a split
+     * @param split
+     * @return picked nodes
+     */
+    List<InternalNode> pickNodes(Split split);
 }

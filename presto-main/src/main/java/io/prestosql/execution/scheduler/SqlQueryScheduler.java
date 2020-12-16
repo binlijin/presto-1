@@ -38,6 +38,7 @@ import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.server.DynamicFilterService;

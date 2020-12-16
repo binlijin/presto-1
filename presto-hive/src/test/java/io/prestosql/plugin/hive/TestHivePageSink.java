@@ -77,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -235,6 +236,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 false,
+                NO_PREFERENCE,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,

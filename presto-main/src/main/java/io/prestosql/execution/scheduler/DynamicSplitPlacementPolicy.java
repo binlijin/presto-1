@@ -14,6 +14,7 @@
 package io.prestosql.execution.scheduler;
 
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 

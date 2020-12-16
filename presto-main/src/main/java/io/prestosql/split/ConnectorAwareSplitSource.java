@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.prestosql.spi.connector.SplitContext.NON_CACHEABLE;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareSplitSource
@@ -55,7 +56,7 @@ public class ConnectorAwareSplitSource
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
-                result.add(new Split(catalogName, connectorSplit, lifespan));
+                result.add(new Split(catalogName, connectorSplit, lifespan, NON_CACHEABLE));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());

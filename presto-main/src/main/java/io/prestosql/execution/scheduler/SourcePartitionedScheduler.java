@@ -57,6 +57,7 @@ import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.NO_A
 import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.connector.SplitContext.NON_CACHEABLE;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -273,7 +274,8 @@ public class SourcePartitionedScheduler
                             pendingSplits.add(new Split(
                                     splitSource.getCatalogName(),
                                     new EmptySplit(splitSource.getCatalogName()),
-                                    lifespan));
+                                    lifespan,
+                                    NON_CACHEABLE));
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }

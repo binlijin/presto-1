@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -29,6 +30,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 
 public class TestHiveConfig
 {
@@ -51,6 +53,7 @@ public class TestHiveConfig
                 .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(100)
                 .setWriterSortBufferSize(DataSize.of(64, Unit.MEGABYTE))
+                .setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE"))
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentMetastoreDrops(20)
@@ -133,6 +136,7 @@ public class TestHiveConfig
                 .put("hive.max-partitions-per-writers", "222")
                 .put("hive.max-open-sort-files", "333")
                 .put("hive.write-validation-threads", "11")
+                .put("hive.node-selection-strategy", "HARD_AFFINITY")
                 .put("hive.force-local-scheduling", "true")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-metastore-drops", "100")
@@ -190,6 +194,7 @@ public class TestHiveConfig
                 .setMaxSplitsPerSecond(1)
                 .setDomainCompactionThreshold(42)
                 .setWriterSortBufferSize(DataSize.of(13, Unit.MEGABYTE))
+                .setNodeSelectionStrategy(HARD_AFFINITY)
                 .setForceLocalScheduling(true)
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentMetastoreDrops(100)

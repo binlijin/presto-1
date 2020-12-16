@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.Objects;
@@ -46,6 +47,7 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final OptionalInt bucketNumber;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
@@ -67,6 +69,7 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
@@ -84,6 +87,7 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(acidInfo, "acidInfo is null");
 
@@ -100,6 +104,7 @@ public class HiveSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.bucketNumber = bucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
@@ -167,8 +172,13 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public List<HostAddress> getAddresses()
+    {
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }
@@ -198,9 +208,9 @@ public class HiveSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return !forceLocalScheduling;
+        return nodeSelectionStrategy;
     }
 
     @JsonProperty

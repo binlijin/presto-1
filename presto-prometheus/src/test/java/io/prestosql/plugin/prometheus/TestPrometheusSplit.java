@@ -55,6 +55,7 @@ import static io.prestosql.plugin.prometheus.PrometheusClock.fixedClockAt;
 import static io.prestosql.plugin.prometheus.PrometheusSplitManager.OFFSET_MILLIS;
 import static io.prestosql.plugin.prometheus.PrometheusSplitManager.decimalSecondString;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.time.Instant.ofEpochMilli;
@@ -62,7 +63,6 @@ import static java.time.ZoneOffset.UTC;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestPrometheusSplit
@@ -84,23 +84,23 @@ public class TestPrometheusSplit
     {
         // http split with default port
         PrometheusSplit httpSplit = new PrometheusSplit(URI.create("http://prometheus.com/prometheus"));
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
-        assertTrue(httpSplit.isRemotelyAccessible());
+        assertEquals(httpSplit.getPreferredNodes(ImmutableList.of()), ImmutableList.of(HostAddress.fromString("prometheus.com")));
+        assertEquals(httpSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with custom port
         httpSplit = new PrometheusSplit(URI.create("http://prometheus.com:8080/prometheus"));
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8080)));
-        assertTrue(httpSplit.isRemotelyAccessible());
+        assertEquals(httpSplit.getPreferredNodes(ImmutableList.of()), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8080)));
+        assertEquals(httpSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with default port
         PrometheusSplit httpsSplit = new PrometheusSplit(URI.create("https://prometheus.com/prometheus"));
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
-        assertTrue(httpsSplit.isRemotelyAccessible());
+        assertEquals(httpsSplit.getPreferredNodes(ImmutableList.of()), ImmutableList.of(HostAddress.fromString("prometheus.com")));
+        assertEquals(httpsSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with custom port
         httpsSplit = new PrometheusSplit(URI.create("https://prometheus.com:8443/prometheus"));
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8443)));
-        assertTrue(httpsSplit.isRemotelyAccessible());
+        assertEquals(httpsSplit.getPreferredNodes(ImmutableList.of()), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8443)));
+        assertEquals(httpsSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 
     @Test
@@ -111,8 +111,8 @@ public class TestPrometheusSplit
         PrometheusSplit copy = codec.fromJson(json);
         assertEquals(copy.getUri(), split.getUri());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of(HostAddress.fromString("127.0.0.1")));
-        assertTrue(copy.isRemotelyAccessible());
+        assertEquals(copy.getPreferredNodes(ImmutableList.of()), ImmutableList.of(HostAddress.fromString("127.0.0.1")));
+        assertEquals(copy.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 
     @Test

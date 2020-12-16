@@ -101,6 +101,7 @@ import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutp
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.prestosql.spi.connector.SplitContext.NON_CACHEABLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
@@ -161,7 +162,7 @@ public class TestHttpRemoteTask
         remoteTask.start();
 
         Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan, NON_CACHEABLE)));
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 

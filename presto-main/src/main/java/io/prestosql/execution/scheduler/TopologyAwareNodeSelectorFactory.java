@@ -24,6 +24,8 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.NodeTaskMap;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
+import io.prestosql.execution.scheduler.nodeselection.TopologyAwareNodeSelector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.HostAddress;

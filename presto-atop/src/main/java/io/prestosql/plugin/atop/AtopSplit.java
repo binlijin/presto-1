@@ -18,12 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.time.Instant.ofEpochSecond;
 import static java.util.Objects.requireNonNull;
 
@@ -68,13 +70,13 @@ public class AtopSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         // discard the port number
         return ImmutableList.of(HostAddress.fromString(host.getHostText()));

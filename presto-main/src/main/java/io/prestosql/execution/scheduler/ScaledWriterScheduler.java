@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.TaskStatus;
+import io.prestosql.execution.scheduler.nodeselection.NodeSelector;
 import io.prestosql.metadata.InternalNode;
 
 import java.util.Collection;

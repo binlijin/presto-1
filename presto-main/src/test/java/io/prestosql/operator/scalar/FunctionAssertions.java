@@ -53,6 +53,7 @@ import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -110,6 +111,7 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -953,13 +955,13 @@ public final class FunctionAssertions
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return false;
+            return HARD_AFFINITY;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of();
         }

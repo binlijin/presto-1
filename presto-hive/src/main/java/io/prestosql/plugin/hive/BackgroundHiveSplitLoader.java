@@ -93,6 +93,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -395,6 +396,7 @@ public class BackgroundHiveSplitLoader
                         Optional.empty(),
                         getMaxInitialSplitSize(session),
                         isForceLocalScheduling(session),
+                        getNodeSelectionStrategy(session),
                         s3SelectPushdownEnabled);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
@@ -434,6 +436,7 @@ public class BackgroundHiveSplitLoader
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
+                getNodeSelectionStrategy(session),
                 s3SelectPushdownEnabled);
 
         // To support custom input formats, we want to call getSplits()

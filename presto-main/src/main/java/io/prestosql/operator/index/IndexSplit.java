@@ -16,6 +16,7 @@ package io.prestosql.operator.index;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 
@@ -32,13 +33,13 @@ public class IndexSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         throw new UnsupportedOperationException();
     }

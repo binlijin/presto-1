@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.prestosql.execution.scheduler.nodeselection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,11 +24,17 @@ import io.airlift.log.Logger;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.resourcegroups.IndexedPriorityQueue;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.InternalNodeInfo;
+import io.prestosql.execution.scheduler.NodeAssignmentStats;
+import io.prestosql.execution.scheduler.NodeMap;
+import io.prestosql.execution.scheduler.SplitPlacementResult;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SplitContext;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -37,8 +43,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -49,7 +57,12 @@ import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionN
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static io.prestosql.execution.scheduler.nodeselection.NodeSelectionUtils.sortedNodes;
+import static io.prestosql.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
@@ -119,18 +132,22 @@ public class UniformNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        ResettableRandomizedIterator<InternalNode> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        NodeSelection randomNodeSelection = new RandomNodeSelection(nodeMap, includeCoordinator, minCandidates, existingTasks);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         // splitsToBeRedistributed becomes true only when splits go through locality-based assignment
         boolean splitsToBeRedistributed = false;
         Set<Split> remainingSplits = new HashSet<>();
 
+        // todo identify if sorting will cause bottleneck
+        List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
+        OptionalInt preferredNodeCount = OptionalInt.empty();
+
         // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
         if (optimizedLocalScheduling) {
             for (Split split : splits) {
-                if (split.isRemotelyAccessible() && !split.getAddresses().isEmpty()) {
-                    List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                if ((split.getNodeSelectionStrategy() != HARD_AFFINITY) && !split.getPreferredNodes(sortedCandidates).isEmpty()) {
+                    List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
 
                     Optional<InternalNode> chosenNode = candidateNodes.stream()
                             .filter(ownerNode -> assignmentStats.getTotalSplitCount(ownerNode) < maxSplitsPerNode)
@@ -151,46 +168,45 @@ public class UniformNodeSelector
         }
 
         for (Split split : remainingSplits) {
-            randomCandidates.reset();
-
             List<InternalNode> candidateNodes;
-            if (!split.isRemotelyAccessible()) {
-                candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
-            }
-            else {
-                candidateNodes = selectNodes(minCandidates, randomCandidates);
+            switch (split.getNodeSelectionStrategy()) {
+                case HARD_AFFINITY:
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    preferredNodeCount = OptionalInt.of(candidateNodes.size());
+                    break;
+                case SOFT_AFFINITY:
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    preferredNodeCount = OptionalInt.of(candidateNodes.size());
+                    candidateNodes = ImmutableList.<InternalNode>builder().addAll(candidateNodes).addAll(randomNodeSelection.pickNodes(split)).build();
+                    break;
+                case NO_PREFERENCE:
+                    candidateNodes = randomNodeSelection.pickNodes(split);
+                    break;
+                default:
+                    throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", split.getNodeSelectionStrategy()));
             }
             if (candidateNodes.isEmpty()) {
                 log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
-            InternalNode chosenNode = null;
-            int min = Integer.MAX_VALUE;
+            Optional<InternalNodeInfo> chosenNodeInfo = chooseLeastBusyNode(candidateNodes, assignmentStats::getTotalSplitCount, preferredNodeCount, maxSplitsPerNode);
+            if (!chosenNodeInfo.isPresent()) {
+                chosenNodeInfo = chooseLeastBusyNode(candidateNodes, assignmentStats::getQueuedSplitCountForStage, preferredNodeCount, maxPendingSplitsPerTask);
+            }
 
-            for (InternalNode node : candidateNodes) {
-                int totalSplitCount = assignmentStats.getTotalSplitCount(node);
-                if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
-                    chosenNode = node;
-                    min = totalSplitCount;
-                }
-            }
-            if (chosenNode == null) {
-                // min is guaranteed to be MAX_VALUE at this line
-                for (InternalNode node : candidateNodes) {
-                    int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
-                        chosenNode = node;
-                        min = totalSplitCount;
-                    }
-                }
-            }
-            if (chosenNode != null) {
+            if (chosenNodeInfo.isPresent()) {
+                split = new Split(
+                        split.getCatalogName(),
+                        split.getConnectorSplit(),
+                        split.getLifespan(),
+                        new SplitContext(chosenNodeInfo.get().isCacheable()));
+                InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
                 assignment.put(chosenNode, split);
                 assignmentStats.addAssignedSplit(chosenNode);
             }
             else {
-                if (split.isRemotelyAccessible()) {
+                if (split.getNodeSelectionStrategy() != HARD_AFFINITY) {
                     splitWaitingForAnyNode = true;
                 }
                 // Exact node set won't matter, if a split is waiting for any node
@@ -298,12 +314,16 @@ public class UniformNodeSelector
     @VisibleForTesting
     public static void redistributeSplit(Multimap<InternalNode, Split> assignment, InternalNode fromNode, InternalNode toNode, SetMultimap<InetAddress, InternalNode> nodesByHost)
     {
+        List<HostAddress> sortedCandidates = nodesByHost.values().stream()
+                .sorted(comparing(InternalNode::getNodeIdentifier)).map(InternalNode::getHostAndPort)
+                .collect(toImmutableList());
         Iterator<Split> splitIterator = assignment.get(fromNode).iterator();
         Split splitToBeRedistributed = null;
         while (splitIterator.hasNext()) {
             Split split = splitIterator.next();
             // Try to select non-local split for redistribution
-            if (!split.getAddresses().isEmpty() && !isSplitLocal(split.getAddresses(), fromNode.getHostAndPort(), nodesByHost)) {
+            if (!split.getPreferredNodes(sortedCandidates).isEmpty() &&
+                    !isSplitLocal(split.getPreferredNodes(sortedCandidates), fromNode.getHostAndPort(), nodesByHost)) {
                 splitToBeRedistributed = split;
                 break;
             }
@@ -340,5 +360,29 @@ public class UniformNodeSelector
             }
         }
         return false;
+    }
+
+    private static Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, Function<InternalNode, Integer> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount)
+    {
+        int min = Integer.MAX_VALUE;
+        InternalNode chosenNode = null;
+        for (int i = 0; i < candidateNodes.size(); i++) {
+            InternalNode node = candidateNodes.get(i);
+            int splitCount = splitCountProvider.apply(node);
+
+            // choose the preferred node first as long as they're not busy
+            if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && splitCount < maxSplitCount) {
+                return Optional.of(new InternalNodeInfo(node, true));
+            }
+            // fallback to choosing the least busy nodes
+            if (splitCount < min && splitCount < maxSplitCount) {
+                chosenNode = node;
+                min = splitCount;
+            }
+        }
+        if (chosenNode == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new InternalNodeInfo(chosenNode, false));
     }
 }

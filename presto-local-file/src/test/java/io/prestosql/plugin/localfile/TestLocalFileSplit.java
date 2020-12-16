@@ -19,6 +19,7 @@ import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static org.testng.Assert.assertEquals;
 
 public class TestLocalFileSplit
@@ -36,6 +37,6 @@ public class TestLocalFileSplit
         assertEquals(copy.getAddress(), split.getAddress());
 
         assertEquals(copy.getAddresses(), ImmutableList.of(address));
-        assertEquals(copy.isRemotelyAccessible(), false);
+        assertEquals(copy.getNodeSelectionStrategy(), HARD_AFFINITY);
     }
 }

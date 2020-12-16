@@ -18,17 +18,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
 import java.net.URI;
 import java.util.List;
 
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
         implements ConnectorSplit
 {
     private final URI uri;
-    private final boolean remotelyAccessible;
     private final List<HostAddress> addresses;
 
     @JsonCreator
@@ -37,7 +38,6 @@ public class ExampleSplit
     {
         this.uri = requireNonNull(uri, "uri is null");
 
-        remotelyAccessible = true;
         addresses = ImmutableList.of(HostAddress.fromUri(uri));
     }
 
@@ -48,14 +48,19 @@ public class ExampleSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         // only http or https is remotely accessible
-        return remotelyAccessible;
+        return NO_PREFERENCE;
+    }
+
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }
