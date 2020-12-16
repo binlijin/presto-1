@@ -38,12 +38,14 @@ public class DruidSplitManager
 {
     private static final Logger LOG = Logger.get(DruidSplitManager.class);
 
+    private final DruidConfig config;
     private final DruidMetadata metadata;
     private final DruidClient druidClient;
 
     @Inject
-    public DruidSplitManager(DruidMetadata metadata, DruidClient druidClient)
+    public DruidSplitManager(DruidConfig config, DruidMetadata metadata, DruidClient druidClient)
     {
+        this.config = requireNonNull(config, "config is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.druidClient = requireNonNull(druidClient, "druid client is null");
     }
@@ -69,7 +71,10 @@ public class DruidSplitManager
         // TODO 根据时间范围过滤segments
         List<DruidSplit> splits = segmentIds.stream()
                 .map(id -> metadata.getDruidSingleSegmentInfo(table.getTableName(), id))
-                .map(info -> createSegmentSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
+                .map(info -> createSegmentSplit(
+                        info,
+                        HostAddress.fromUri(druidClient.getDruidBroker()),
+                        config.getNodeSelectionStrategy()))
                 .collect(toImmutableList());
         if (LOG.isDebugEnabled()) {
             LOG.debug("Get splits = " + splits + " takes " + (System.currentTimeMillis() - startTime) + " ms.");

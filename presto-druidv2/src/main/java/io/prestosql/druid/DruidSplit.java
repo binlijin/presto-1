@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.druid.metadata.DruidSegmentInfo;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.schedule.NodeSelectionStrategy;
 
@@ -26,7 +27,9 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class DruidSplit
@@ -35,12 +38,14 @@ public class DruidSplit
     private final SplitType splitType;
     private final Optional<DruidSegmentInfo> segmentInfo;
     private final Optional<HostAddress> address;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
 
     @JsonCreator
     public DruidSplit(
             @JsonProperty("splitType") SplitType splitType,
             @JsonProperty("segmentInfo") Optional<DruidSegmentInfo> segmentInfo,
-            @JsonProperty("address") Optional<HostAddress> address)
+            @JsonProperty("address") Optional<HostAddress> address,
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.segmentInfo = requireNonNull(segmentInfo, "segment info is null");
@@ -49,6 +54,7 @@ public class DruidSplit
             checkArgument(segmentInfo.isPresent(), "SegmentInfo is missing from split");
             checkArgument(address.isPresent(), "Address is missing from split");
         }
+        this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
     }
 
     public static DruidSplit createBrokerSplit()
@@ -57,15 +63,20 @@ public class DruidSplit
         return new DruidSplit(
                 SplitType.BROKER,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_PREFERENCE);
     }
 
-    public static DruidSplit createSegmentSplit(DruidSegmentInfo segmentInfo, HostAddress address)
+    public static DruidSplit createSegmentSplit(
+            DruidSegmentInfo segmentInfo,
+            HostAddress address,
+            NodeSelectionStrategy nodeSelectionStrategy)
     {
         return new DruidSplit(
                 SplitType.SEGMENT,
                 Optional.of(requireNonNull(segmentInfo, "segmentInfo are null")),
-                Optional.of(requireNonNull(address, "address is null")));
+                Optional.of(requireNonNull(address, "address is null")),
+                nodeSelectionStrategy);
     }
 
     @JsonProperty
@@ -95,12 +106,25 @@ public class DruidSplit
     @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return NO_PREFERENCE;
+        return nodeSelectionStrategy;
     }
 
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
+        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for DruidSplit");
+        }
+
+        if (getNodeSelectionStrategy() == SOFT_AFFINITY && segmentInfo.isPresent()) {
+            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
+            int size = sortedCandidates.size();
+            int mod = segmentInfo.get().hashCode() % size;
+            int position = mod < 0 ? mod + size : mod;
+            return ImmutableList.of(
+                    sortedCandidates.get(position),
+                    sortedCandidates.get((position + 1) % size));
+        }
         return ImmutableList.of();
     }
 

@@ -20,6 +20,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.prestosql.spi.schedule.NodeSelectionStrategy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -29,6 +30,8 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static io.prestosql.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 
 public class DruidConfig
 {
@@ -43,6 +46,7 @@ public class DruidConfig
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
     private int maxBatchSize = 1024;
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
+    private NodeSelectionStrategy nodeSelectionStrategy = SOFT_AFFINITY;
 
     public enum DruidAuthenticationType
     {
@@ -223,6 +227,18 @@ public class DruidConfig
     public DruidConfig setMetadataCacheExpiry(Duration metadataCacheExpiry)
     {
         this.metadataCacheExpiry = metadataCacheExpiry;
+        return this;
+    }
+
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
+        return nodeSelectionStrategy;
+    }
+
+    @Config("druid.node-selection-strategy")
+    public DruidConfig setNodeSelectionStrategy(NodeSelectionStrategy nodeSelectionStrategy)
+    {
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         return this;
     }
 }
