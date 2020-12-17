@@ -104,6 +104,7 @@ public class DruidSplit
     }
 
     @Override
+    @JsonProperty
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         return nodeSelectionStrategy;

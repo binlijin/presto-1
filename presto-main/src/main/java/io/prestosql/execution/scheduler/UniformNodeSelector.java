@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -226,6 +227,11 @@ public class UniformNodeSelector
 
         if (splitsToBeRedistributed) {
             equateDistribution(assignment, assignmentStats, nodeMap, includeCoordinator);
+        }
+        for (Map.Entry<InternalNode, Collection<Split>> entry : assignment.asMap().entrySet()) {
+            for (Split split : entry.getValue()) {
+                log.info("split = " + split + " assign to node = " + entry.getKey());
+            }
         }
         return new SplitPlacementResult(blocked, assignment);
     }
