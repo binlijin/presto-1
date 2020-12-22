@@ -342,12 +342,6 @@ public class CombinedBlockCache
         }
 
         @Override
-        public long getPrimaryMissCount()
-        {
-            return lruCacheStats.getPrimaryMissCount() + bucketCacheStats.getPrimaryMissCount();
-        }
-
-        @Override
         public long getMissCachingCount()
         {
             return lruCacheStats.getMissCachingCount()
@@ -358,12 +352,6 @@ public class CombinedBlockCache
         public long getHitCount()
         {
             return lruCacheStats.getHitCount() + bucketCacheStats.getHitCount();
-        }
-
-        @Override
-        public long getPrimaryHitCount()
-        {
-            return lruCacheStats.getPrimaryHitCount() + bucketCacheStats.getPrimaryHitCount();
         }
 
         @Override

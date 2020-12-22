@@ -34,11 +34,6 @@ public class CacheStats
     private final LongAdder hitCount = new LongAdder();
 
     /**
-     * The number of getBlock requests that were cache hits from primary replica
-     */
-    private final LongAdder primaryHitCount = new LongAdder();
-
-    /**
      * The number of getBlock requests that were cache hits, but only from
      * requests that were set to use the block cache.  This is because all reads
      * attempt to read from the block cache even if they will not put new blocks
@@ -51,10 +46,6 @@ public class CacheStats
      */
     private final LongAdder missCount = new LongAdder();
 
-    /**
-     * The number of getBlock requests for primary replica that were cache misses
-     */
-    private final LongAdder primaryMissCount = new LongAdder();
     /**
      * The number of getBlock requests that were cache misses, but only from
      * requests that were set to use the block cache.
@@ -75,6 +66,10 @@ public class CacheStats
      * The total number of blocks that were not inserted.
      */
     private final AtomicLong failedInserts = new AtomicLong(0);
+
+    private final AtomicLong successedInserts = new AtomicLong(0);
+
+    private final AtomicLong successedSerialized = new AtomicLong(0);
 
     /**
      * Per Block Type Counts
@@ -161,20 +156,17 @@ public class CacheStats
     @Override
     public String toString()
     {
-        return "hitCount=" + getHitCount() + ", hitCachingCount=" + getHitCachingCount() +
-                ", missCount=" + getMissCount() + ", missCachingCount=" + getMissCachingCount() +
+        return "hitCount=" + getHitCount() +
+                ", hitCachingCount=" + getHitCachingCount() +
+                ", missCount=" + getMissCount() +
+                ", missCachingCount=" + getMissCachingCount() +
                 ", evictionCount=" + getEvictionCount() +
-                ", evictedBlockCount=" + getEvictedCount() +
-                ", primaryMissCount=" + getPrimaryMissCount() +
-                ", primaryHitCount=" + getPrimaryHitCount();
+                ", evictedBlockCount=" + getEvictedCount();
     }
 
-    public void miss(boolean caching, boolean primary, BlockType type)
+    public void miss(boolean caching, BlockType type)
     {
         missCount.increment();
-        if (primary) {
-            primaryMissCount.increment();
-        }
         if (caching) {
             missCachingCount.increment();
         }
@@ -220,12 +212,9 @@ public class CacheStats
         }
     }
 
-    public void hit(boolean caching, boolean primary, BlockType type)
+    public void hit(boolean caching, BlockType type)
     {
         hitCount.increment();
-        if (primary) {
-            primaryHitCount.increment();
-        }
         if (caching) {
             hitCachingCount.increment();
         }
@@ -285,6 +274,16 @@ public class CacheStats
     public long failInsert()
     {
         return failedInserts.incrementAndGet();
+    }
+
+    public long successInsert()
+    {
+        return successedInserts.incrementAndGet();
+    }
+
+    public long successSerialize()
+    {
+        return successedSerialized.incrementAndGet();
     }
 
     // All of the counts of misses and hits.
@@ -403,11 +402,6 @@ public class CacheStats
         return missCount.sum();
     }
 
-    public long getPrimaryMissCount()
-    {
-        return primaryMissCount.sum();
-    }
-
     public long getMissCachingCount()
     {
         return missCachingCount.sum();
@@ -416,11 +410,6 @@ public class CacheStats
     public long getHitCount()
     {
         return hitCount.sum();
-    }
-
-    public long getPrimaryHitCount()
-    {
-        return primaryHitCount.sum();
     }
 
     public long getHitCachingCount()
@@ -496,6 +485,16 @@ public class CacheStats
     public long getFailedInserts()
     {
         return failedInserts.get();
+    }
+
+    public long getSuccessedInserts()
+    {
+        return successedInserts.get();
+    }
+
+    public long getSuccessedSerialized()
+    {
+        return successedSerialized.get();
     }
 
     public void rollMetricsPeriod()

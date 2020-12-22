@@ -567,7 +567,7 @@ public class LruBlockCache
         });
         if (cb == null) {
             if (!repeat && updateCacheMetrics) {
-                stats.miss(caching, true, cacheKey.getBlockType());
+                stats.miss(caching, cacheKey.getBlockType());
             }
             // If there is another block cache then try and read there.
             // However if this is a retry (second time in double checked locking)
@@ -586,7 +586,7 @@ public class LruBlockCache
             return null;
         }
         if (updateCacheMetrics) {
-            stats.hit(caching, true, cacheKey.getBlockType());
+            stats.hit(caching, cacheKey.getBlockType());
         }
         cb.access(count.incrementAndGet());
         return cb.getBuffer();

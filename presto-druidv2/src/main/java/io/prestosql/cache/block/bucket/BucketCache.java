@@ -495,6 +495,7 @@ public class BucketCache
             cacheStats.failInsert();
         }
         else {
+            cacheStats.successInsert();
             this.blockNumber.increment();
             //this.heapSize.add(cachedItem.heapSize());
             blocksByHFile.add(cacheKey);
@@ -520,7 +521,7 @@ public class BucketCache
         RAMQueueEntry re = ramCache.get(key);
         if (re != null) {
             if (updateCacheMetrics) {
-                cacheStats.hit(caching, true, key.getBlockType());
+                cacheStats.hit(caching, key.getBlockType());
             }
             re.access(accessCount.incrementAndGet());
             return re.getData();
@@ -546,7 +547,7 @@ public class BucketCache
                     }
                     // Update the cache statistics.
                     if (updateCacheMetrics) {
-                        cacheStats.hit(caching, true, key.getBlockType());
+                        cacheStats.hit(caching, key.getBlockType());
                         cacheStats.ioHit(System.nanoTime() - start);
                     }
                     bucketEntry.access(accessCount.incrementAndGet());
@@ -565,7 +566,7 @@ public class BucketCache
             }
         }
         if (!repeat && updateCacheMetrics) {
-            cacheStats.miss(caching, true, key.getBlockType());
+            cacheStats.miss(caching, key.getBlockType());
         }
         return null;
     }
@@ -678,6 +679,8 @@ public class BucketCache
         long freeSize = totalSize - usedSize;
         long cacheSize = getRealCacheSize();
         LOG.info("failedBlockAdditions=" + cacheStats.getFailedInserts() + ", " +
+                "successedBlockAdditions=" + cacheStats.getSuccessedInserts() + ", " +
+                "successedBlocksSerialized=" + cacheStats.getSuccessedSerialized() + ", " +
                 "totalSize=" + StringUtils.byteDesc(totalSize) + ", " +
                 "freeSize=" + StringUtils.byteDesc(freeSize) + ", " +
                 "usedSize=" + StringUtils.byteDesc(usedSize) + ", " +
@@ -688,10 +691,6 @@ public class BucketCache
                 "IOTimePerHit=" + String.format("%.2f", cacheStats.getIOTimePerHit()) + ", " +
                 "hitRatio=" + (cacheStats.getHitCount() == 0 ? "0," :
                 (StringUtils.formatPercent(cacheStats.getHitRatio(), 2) + ", ")) +
-                "cachingAccesses=" + cacheStats.getRequestCachingCount() + ", " +
-                "cachingHits=" + cacheStats.getHitCachingCount() + ", " +
-                "cachingHitsRatio=" + (cacheStats.getHitCachingCount() == 0 ? "0," :
-                (StringUtils.formatPercent(cacheStats.getHitCachingRatio(), 2) + ", ")) +
                 "evictions=" + cacheStats.getEvictionCount() + ", " +
                 "evicted=" + cacheStats.getEvictedCount() + ", " +
                 "evictedPerRun=" + cacheStats.evictedPerEviction());
@@ -1021,6 +1020,7 @@ public class BucketCache
                         ioErrorStartTime = -1;
                     }
                     index++;
+                    cacheStats.successSerialize();
                 }
                 catch (BucketAllocatorException fle) {
                     LOG.warn("Failed allocation for " + (re == null ? "" : re.getKey()) + "; " + fle);
