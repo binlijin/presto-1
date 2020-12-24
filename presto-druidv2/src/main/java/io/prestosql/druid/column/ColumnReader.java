@@ -31,7 +31,12 @@ import static java.lang.String.format;
 
 public interface ColumnReader
 {
-    Block readBlock(Type type, int batchSize);
+    Block readBlock(Type type, int batchSize, boolean filterBatch);
+
+    default boolean hasPostFilter()
+    {
+        return false;
+    }
 
     default boolean filterBatch()
     {

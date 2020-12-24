@@ -23,5 +23,5 @@ public interface SegmentReader
 {
     int nextBatch();
 
-    Block readBlock(Type type, String columnName);
+    Block readBlock(Type type, String columnName, boolean filterBatch);
 }

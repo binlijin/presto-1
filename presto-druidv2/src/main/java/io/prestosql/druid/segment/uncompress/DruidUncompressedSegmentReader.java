@@ -151,9 +151,14 @@ public class DruidUncompressedSegmentReader
     }
 
     @Override
-    public Block readBlock(Type type, String columnName)
+    public Block readBlock(Type type, String columnName, boolean filterBatch)
     {
-        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
+        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize, filterBatch);
+    }
+
+    public ColumnReader getColumnReader(String columnName)
+    {
+        return columnValueSelectors.get(columnName);
     }
 
     public long getReadTimeNanos()

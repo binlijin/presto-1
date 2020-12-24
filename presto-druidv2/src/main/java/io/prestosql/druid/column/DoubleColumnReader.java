@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class DoubleColumnReader
         implements ColumnReader
 {
+    private static final double PAD_DOUBLE = 0;
     private final Offset offset;
     private final ColumnValueSelector<Double> valueSelector;
 
@@ -36,12 +37,18 @@ public class DoubleColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == DOUBLE);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeDouble(builder, valueSelector.getDouble());
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                type.writeDouble(builder, PAD_DOUBLE);
+            }
+            else {
+                type.writeDouble(builder, valueSelector.getDouble());
+            }
             offset.increment();
         }
 

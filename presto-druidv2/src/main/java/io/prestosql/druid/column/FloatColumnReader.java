@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class FloatColumnReader
         implements ColumnReader
 {
+    private static final float PAD_FLOAT = 0;
     private final Offset offset;
     private final ColumnValueSelector<Float> valueSelector;
 
@@ -37,12 +38,18 @@ public class FloatColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == REAL);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                type.writeLong(builder, floatToRawIntBits(PAD_FLOAT));
+            }
+            else {
+                type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
+            }
             offset.increment();
         }
 

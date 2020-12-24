@@ -44,27 +44,33 @@ public class StringColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            if (optimize) {
-                byte[] object = columnValueReader.getObjectByte();
-                if (object != null && object.length > 0) {
-                    type.writeSlice(builder, Slices.wrappedBuffer(object, 0, object.length));
-                }
-                else {
-                    builder.appendNull();
-                }
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value, append null value.
+                builder.appendNull();
             }
             else {
-                String value = String.valueOf(valueSelector.getObject());
-                if (value != null) {
-                    type.writeSlice(builder, Slices.utf8Slice(value));
+                if (optimize) {
+                    byte[] object = columnValueReader.getObjectByte();
+                    if (object != null && object.length > 0) {
+                        type.writeSlice(builder, Slices.wrappedBuffer(object, 0, object.length));
+                    }
+                    else {
+                        builder.appendNull();
+                    }
                 }
                 else {
-                    builder.appendNull();
+                    String value = String.valueOf(valueSelector.getObject());
+                    if (value != null) {
+                        type.writeSlice(builder, Slices.utf8Slice(value));
+                    }
+                    else {
+                        builder.appendNull();
+                    }
                 }
             }
             offset.increment();

@@ -178,9 +178,9 @@ public class DruidSegmentReader
     }
 
     @Override
-    public Block readBlock(Type type, String columnName)
+    public Block readBlock(Type type, String columnName, boolean filterBatch)
     {
-        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
+        return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize, filterBatch);
     }
 
     @Override

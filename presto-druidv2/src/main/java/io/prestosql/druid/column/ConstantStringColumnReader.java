@@ -37,7 +37,7 @@ public class ConstantStringColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);

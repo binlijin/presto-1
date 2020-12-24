@@ -130,7 +130,7 @@ public class DruidSegmentPageSource
 
             checkState(batchId == expectedBatchId);
 
-            Block block = segmentReader.readBlock(type, name);
+            Block block = segmentReader.readBlock(type, name, false);
             loaded = true;
             return block;
         }

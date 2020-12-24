@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampColumnReader
         implements ColumnReader
 {
+    private static final long PAD_LONG = 0;
     private final Offset offset;
     private final ColumnValueSelector<Long> valueSelector;
 
@@ -36,12 +37,18 @@ public class TimestampColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == TIMESTAMP);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeLong(builder, valueSelector.getLong());
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                type.writeLong(builder, PAD_LONG);
+            }
+            else {
+                type.writeLong(builder, valueSelector.getLong());
+            }
             offset.increment();
         }
 

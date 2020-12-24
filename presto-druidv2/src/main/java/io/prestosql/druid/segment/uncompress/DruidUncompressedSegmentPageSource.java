@@ -15,17 +15,15 @@ package io.prestosql.druid.segment.uncompress;
 
 import io.airlift.log.Logger;
 import io.prestosql.druid.DruidColumnHandle;
+import io.prestosql.druid.column.ColumnReader;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DruidUncompressedSegmentPageSource
@@ -82,9 +80,26 @@ public class DruidUncompressedSegmentPageSource
             return null;
         }
         Block[] blocks = new Block[columns.size()];
+        //
+        boolean filterBatch = false;
         for (int i = 0; i < blocks.length; i++) {
             DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
-            blocks[i] = segmentReader.readBlock(columnHandle.getColumnType(), columnHandle.getColumnName());
+            ColumnReader columnReader = segmentReader.getColumnReader(columnHandle.getColumnName());
+            if (columnReader.hasPostFilter()) {
+                blocks[i] = columnReader.readBlock(columnHandle.getColumnType(), batchSize, false);
+                if (columnReader.filterBatch()) {
+                    filterBatch = true;
+                }
+                //System.out.println("column = " + columnHandle.getColumnName() + ", type " + columnHandle.getColumnType());
+                //System.out.println("batchSize " + batchSize + ", filter batch = " + columnReader.filterBatch());
+            }
+        }
+        for (int i = 0; i < blocks.length; i++) {
+            DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
+            ColumnReader columnReader = segmentReader.getColumnReader(columnHandle.getColumnName());
+            if (!columnReader.hasPostFilter()) {
+                blocks[i] = columnReader.readBlock(columnHandle.getColumnType(), batchSize, filterBatch);
+            }
             //blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
         }
         Page page = new Page(batchSize, blocks);
@@ -122,33 +137,32 @@ public class DruidUncompressedSegmentPageSource
         catch (IOException ioe) {
         }
     }
-
-    private final class SegmentBlockLoader
-            implements LazyBlockLoader
-    {
-        private final int expectedBatchId = batchId;
-        private final Type type;
-        private final String name;
-        private boolean loaded;
-
-        public SegmentBlockLoader(Type type, String name)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.name = requireNonNull(name, "name is null");
-        }
-
-        @Override
-        public final Block load()
-        {
-            if (loaded) {
-                return null;
-            }
-
-            checkState(batchId == expectedBatchId);
-
-            Block block = segmentReader.readBlock(type, name);
-            loaded = true;
-            return block;
-        }
-    }
+//    private final class SegmentBlockLoader
+//            implements LazyBlockLoader
+//    {
+//        private final int expectedBatchId = batchId;
+//        private final Type type;
+//        private final String name;
+//        private boolean loaded;
+//
+//        public SegmentBlockLoader(Type type, String name)
+//        {
+//            this.type = requireNonNull(type, "type is null");
+//            this.name = requireNonNull(name, "name is null");
+//        }
+//
+//        @Override
+//        public final Block load()
+//        {
+//            if (loaded) {
+//                return null;
+//            }
+//
+//            checkState(batchId == expectedBatchId);
+//
+//            Block block = segmentReader.readBlock(type, name);
+//            loaded = true;
+//            return block;
+//        }
+//    }
 }

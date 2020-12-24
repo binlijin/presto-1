@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class LongColumnReader
         implements ColumnReader
 {
+    private static final long PAD_LONG = 0;
     private final Offset offset;
     private final ColumnValueSelector<Long> valueSelector;
     private final DimFilter postFilter;
@@ -55,27 +56,45 @@ public class LongColumnReader
     }
 
     @Override
-    public Block readBlock(Type type, int batchSize)
+    public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         // TODO: use batch value selector
         checkArgument(type == BIGINT);
-        batchAllFilter = true;
+        boolean hasValue = false;
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            long value = valueSelector.getLong();
-            type.writeLong(builder, value);
-            offset.increment();
-            if (constantL != null && constantL != value) {
-                // filter
+            long value;
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                value = PAD_LONG;
+                type.writeLong(builder, value);
             }
             else {
-                batchAllFilter = false;
+                value = valueSelector.getLong();
+                type.writeLong(builder, value);
+            }
+            offset.increment();
+            if (constantL != null) {
+                // can not filter
+                if (constantL == value) {
+                    hasValue = true;
+                }
+            }
+            else {
+                hasValue = true;
             }
         }
-
+        batchAllFilter = !hasValue;
         return builder.build();
     }
 
+    @Override
+    public boolean hasPostFilter()
+    {
+        return (constantL != null);
+    }
+
+    @Override
     public boolean filterBatch()
     {
         return batchAllFilter;
