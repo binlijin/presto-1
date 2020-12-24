@@ -35,7 +35,7 @@ import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
-import org.apache.druid.segment.data.ReadableOffset;
+import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.Filters;
 
@@ -94,19 +94,19 @@ public class DruidSegmentReader
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
-                ReadableOffset offset = null;
+                Offset offset = null;
                 if (filterBitmap != null) {
                     offset = new BitmapReadableOffset(filterBitmap);
                 }
                 else {
-                    offset = new SimpleReadableOffset();
+                    offset = new SimpleReadableOffset((int) totalRowCount);
                 }
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
                 BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                 ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
+                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector, offset, null));
             }
             columnValueSelectors = selectorsBuilder.build();
         }

@@ -16,7 +16,11 @@ package io.prestosql.druid.column;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.DimensionHandlerUtils;
+import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -25,11 +29,29 @@ import static java.util.Objects.requireNonNull;
 public class LongColumnReader
         implements ColumnReader
 {
+    private final Offset offset;
     private final ColumnValueSelector<Long> valueSelector;
+    private final DimFilter postFilter;
+    private Long constantL;
+    private boolean batchAllFilter;
 
-    public LongColumnReader(ColumnValueSelector valueSelector)
+    public LongColumnReader(Offset offset, ColumnValueSelector valueSelector, DimFilter postFilter)
     {
+        this.offset = requireNonNull(offset, "offset is null");
         this.valueSelector = requireNonNull(valueSelector, "value selector is null");
+        this.postFilter = postFilter;
+        if (this.postFilter != null) {
+            if (this.postFilter instanceof SelectorDimFilter) {
+                SelectorDimFilter selectorDimFilter = (SelectorDimFilter) this.postFilter;
+                try {
+                    constantL = DimensionHandlerUtils.convertObjectToLong(selectorDimFilter.getValue());
+                }
+                catch (RuntimeException e) {
+                    //TODO Do not throw exception?
+                }
+            }
+        }
+        this.batchAllFilter = false;
     }
 
     @Override
@@ -37,11 +59,25 @@ public class LongColumnReader
     {
         // TODO: use batch value selector
         checkArgument(type == BIGINT);
+        batchAllFilter = true;
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeLong(builder, valueSelector.getLong());
+            long value = valueSelector.getLong();
+            type.writeLong(builder, value);
+            offset.increment();
+            if (constantL != null && constantL != value) {
+                // filter
+            }
+            else {
+                batchAllFilter = false;
+            }
         }
 
         return builder.build();
+    }
+
+    public boolean filterBatch()
+    {
+        return batchAllFilter;
     }
 }

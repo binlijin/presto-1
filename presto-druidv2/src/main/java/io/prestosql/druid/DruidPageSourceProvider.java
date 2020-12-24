@@ -100,7 +100,7 @@ public class DruidPageSourceProvider
             limit = druidTableHandle.getLimit().getAsLong();
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug("filter = " + filter + "limit = " + limit);
+            LOG.debug("filter = " + filter + ", limit = " + limit);
         }
 
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();

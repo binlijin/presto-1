@@ -14,24 +14,60 @@
 package io.prestosql.druid.column;
 
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
+import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.data.ReadableOffset;
 
 public class SimpleReadableOffset
-        implements ReadableOffset
+        extends Offset
 {
-    private int row;
+    private final int rowCount;
+    private final int initialOffset;
+    private int currentOffset;
+
+    public SimpleReadableOffset(int rowCount)
+    {
+        this(0, rowCount);
+    }
+
+    private SimpleReadableOffset(int initialOffset, int rowCount)
+    {
+        this.initialOffset = initialOffset;
+        this.currentOffset = initialOffset;
+        this.rowCount = rowCount;
+    }
 
     @Override
     public int getOffset()
     {
-        // have to update row in getOffset, as BaseColumn requires ReadableOffset in makeColumnValuesSelector
-        int offset = row;
-        row++;
-        return offset;
+        return currentOffset;
     }
 
     @Override
     public void inspectRuntimeShape(RuntimeShapeInspector inspector)
     {
+    }
+
+    @Override
+    public void increment()
+    {
+        currentOffset++;
+    }
+
+    @Override
+    public boolean withinBounds()
+    {
+        return currentOffset < rowCount;
+    }
+
+    @Override
+    public void reset()
+    {
+        currentOffset = initialOffset;
+    }
+
+    @Override
+    public ReadableOffset getBaseReadableOffset()
+    {
+        return this;
     }
 }

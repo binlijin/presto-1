@@ -16,7 +16,9 @@ package io.prestosql.druid.column;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.filter.SelectorFilter;
 
 import static io.prestosql.druid.DruidErrorCode.DRUID_UNSUPPORTED_TYPE_ERROR;
@@ -31,22 +33,27 @@ public interface ColumnReader
 {
     Block readBlock(Type type, int batchSize);
 
-    static ColumnReader createColumnReader(Type type, ColumnValueSelector valueSelector)
+    default boolean filterBatch()
+    {
+        return false;
+    }
+
+    static ColumnReader createColumnReader(Type type, ColumnValueSelector valueSelector, Offset offset, DimFilter postFilter)
     {
         if (type == VARCHAR) {
-            return new StringColumnReader(valueSelector);
+            return new StringColumnReader(offset, valueSelector);
         }
         if (type == DOUBLE) {
-            return new DoubleColumnReader(valueSelector);
+            return new DoubleColumnReader(offset, valueSelector);
         }
         if (type == BIGINT) {
-            return new LongColumnReader(valueSelector);
+            return new LongColumnReader(offset, valueSelector, postFilter);
         }
         if (type == REAL) {
-            return new FloatColumnReader(valueSelector);
+            return new FloatColumnReader(offset, valueSelector);
         }
         if (type == TIMESTAMP) {
-            return new TimestampColumnReader(valueSelector);
+            return new TimestampColumnReader(offset, valueSelector);
         }
         throw new PrestoException(DRUID_UNSUPPORTED_TYPE_ERROR, format("Unsupported type: %s", type));
     }

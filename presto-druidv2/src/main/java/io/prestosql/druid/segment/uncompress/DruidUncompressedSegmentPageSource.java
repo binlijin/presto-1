@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import io.prestosql.druid.DruidColumnHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -85,7 +84,8 @@ public class DruidUncompressedSegmentPageSource
         Block[] blocks = new Block[columns.size()];
         for (int i = 0; i < blocks.length; i++) {
             DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
-            blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
+            blocks[i] = segmentReader.readBlock(columnHandle.getColumnType(), columnHandle.getColumnName());
+            //blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
         }
         Page page = new Page(batchSize, blocks);
         completedBytes += page.getSizeInBytes();

@@ -15,11 +15,12 @@ package io.prestosql.druid.column;
 
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
+import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.data.ReadableOffset;
 import org.roaringbitmap.IntIterator;
 
 public class BitmapReadableOffset
-        implements ReadableOffset
+        extends Offset
 {
     private static final int INVALID_VALUE = -1;
 
@@ -31,23 +32,46 @@ public class BitmapReadableOffset
     {
         this.filterBitmap = filterBitmap;
         this.iterator = filterBitmap.iterator();
+        increment();
     }
 
     @Override
     public int getOffset()
     {
-        // have to update row in getOffset, as BaseColumn requires ReadableOffset in makeColumnValuesSelector
-        if (iterator.hasNext()) {
-            value = iterator.next();
-        }
-        else {
-            value = INVALID_VALUE;
-        }
         return value;
     }
 
     @Override
     public void inspectRuntimeShape(RuntimeShapeInspector inspector)
     {
+    }
+
+    @Override
+    public void increment()
+    {
+        if (iterator.hasNext()) {
+            value = iterator.next();
+        }
+        else {
+            value = INVALID_VALUE;
+        }
+    }
+
+    @Override
+    public boolean withinBounds()
+    {
+        return value > INVALID_VALUE;
+    }
+
+    @Override
+    public void reset()
+    {
+        this.iterator = filterBitmap.iterator();
+    }
+
+    @Override
+    public ReadableOffset getBaseReadableOffset()
+    {
+        return this;
     }
 }

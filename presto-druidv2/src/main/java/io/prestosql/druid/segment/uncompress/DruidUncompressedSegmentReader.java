@@ -28,6 +28,7 @@ import io.prestosql.spi.type.Type;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
+import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.ColumnSelectorBitmapIndexSelector;
@@ -35,9 +36,10 @@ import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
-import org.apache.druid.segment.data.ReadableOffset;
+import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.filter.AndFilter;
-import org.apache.druid.segment.filter.Filters;
+import org.apache.druid.segment.filter.BoundFilter;
+import org.apache.druid.segment.filter.InFilter;
 import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -65,7 +67,7 @@ public class DruidUncompressedSegmentReader
     private static final Logger LOG = Logger.get(DruidUncompressedSegmentReader.class);
 
     private final Map<String, ColumnReader> columnValueSelectors;
-    private final long totalRowCount;
+    private final int totalRowCount;
     private final DimFilter filter;
     private final int maxBatchSize;
     private final Path segmentPath;
@@ -74,6 +76,7 @@ public class DruidUncompressedSegmentReader
     private long currentPosition;
     private int currentBatchSize;
     private Map<String, SelectorFilter> constantFields = new ConcurrentHashMap<>();
+    private Map<String, DimFilter> postFilterFields = new ConcurrentHashMap<>();
 
     public DruidUncompressedSegmentReader(
             FileSystem fileSystem,
@@ -91,17 +94,16 @@ public class DruidUncompressedSegmentReader
                     new V9UncompressedSegmentIndexSource(fileSystem, segmentPath);
             queryableIndex = uncompressedSegmentIndexSource.loadIndex(columns);
 
-            ImmutableBitmap filterBitmap = analyzeFilter(Filters.toFilter(this.filter));
+            ImmutableBitmap filterBitmap = analyzeFilter(this.filter);
             if (filterBitmap != null) {
-                totalRowCount =
-                        Long.min(filterBitmap.size(), Long.min(queryableIndex.getNumRows(), limit));
+                totalRowCount = (int) Long.min(filterBitmap.size(), Long.min(queryableIndex.getNumRows(), limit));
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("DruidSegmentReader for " + segmentPath + ", select " + filterBitmap.size() + "/"
                             + queryableIndex.getNumRows() + " rows ");
                 }
             }
             else {
-                totalRowCount = Long.min(queryableIndex.getNumRows(), limit);
+                totalRowCount = (int) Long.min(queryableIndex.getNumRows(), limit);
             }
             if (LOG.isDebugEnabled()) {
                 LOG.debug("DruidSegmentReader for " + segmentPath + ", totalRowCount = " + totalRowCount + ", limit = " + limit
@@ -109,18 +111,19 @@ public class DruidUncompressedSegmentReader
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
-                ReadableOffset offset = null;
+                Offset offset = null;
                 if (filterBitmap != null) {
                     offset = new BitmapReadableOffset(filterBitmap);
                 }
                 else {
-                    offset = new SimpleReadableOffset();
+                    offset = new SimpleReadableOffset(totalRowCount);
                 }
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
                 //LOG.debug("Read columnName = " + columnName + ", type " + type);
                 if (constantFields.containsKey(columnName)) {
+                    // Do not need to read this column.
                     SelectorFilter selectorFilter = constantFields.get(columnName);
                     selectorsBuilder.put(columnName, createConstantsColumnReader(type, selectorFilter));
                     //LOG.debug("Constants columnName = " + columnName + ", value = " + selectorFilter.getValue() + ", type " + type);
@@ -128,7 +131,7 @@ public class DruidUncompressedSegmentReader
                 else {
                     BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                     ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                    selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
+                    selectorsBuilder.put(columnName, createColumnReader(type, valueSelector, offset, postFilterFields.get(columnName)));
                 }
             }
             columnValueSelectors = selectorsBuilder.build();
@@ -163,7 +166,7 @@ public class DruidUncompressedSegmentReader
         return ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos();
     }
 
-    public ImmutableBitmap analyzeFilter(@Nullable final Filter filter)
+    public ImmutableBitmap analyzeFilter(@Nullable final DimFilter dimFilter)
     {
         ImmutableBitmap filterBitmap = null;
 
@@ -176,15 +179,16 @@ public class DruidUncompressedSegmentReader
         final Set<Filter> preFilters;
         final List<Filter> postFilters = new ArrayList<>();
         int preFilteredRows = totalRows;
-        if (filter == null) {
+        if (dimFilter == null) {
             preFilters = Collections.emptySet();
         }
         else {
             preFilters = new HashSet<>();
 
-            if (filter instanceof AndFilter) {
+            if (dimFilter instanceof DimFilter) {
                 // If we get an AndFilter, we can split the subfilters across both filtering stages
-                for (Filter subfilter : ((AndFilter) filter).getFilters()) {
+                for (DimFilter field : ((AndDimFilter) dimFilter).getFields()) {
+                    Filter subfilter = field.toFilter();
                     // only string typed dimensions support bitmap index
                     // https://druid.apache.org/docs/latest/ingestion/index.html#dimensionsspec
                     if (subfilter.supportsBitmapIndex(indexSelector) && subfilter
@@ -196,11 +200,28 @@ public class DruidUncompressedSegmentReader
                         }
                     }
                     else {
+                        //
                         postFilters.add(subfilter);
+                        if (subfilter instanceof SelectorFilter) {
+                            SelectorFilter selectorFilter = (SelectorFilter) subfilter;
+                            postFilterFields.put(selectorFilter.getDimension(), field);
+                        }
+                        else if (subfilter instanceof InFilter) {
+                            InFilter inFilter = (InFilter) subfilter;
+                            if (inFilter.getRequiredColumns().size() == 1) {
+                                //TODO
+                                //String dimension = inFilter.getRequiredColumns().iterator().next();
+                                //postFilterFields.put(dimension, inFilter);
+                            }
+                        }
+                        else if (subfilter instanceof BoundFilter) {
+                            //TODO
+                        }
                     }
                 }
             }
             else {
+                Filter filter = dimFilter.toFilter();
                 // If we get an OrFilter or a single filter, handle the filter in one stage
                 if (filter.supportsBitmapIndex(indexSelector) && filter
                         .shouldUseBitmapIndex(indexSelector)) {
