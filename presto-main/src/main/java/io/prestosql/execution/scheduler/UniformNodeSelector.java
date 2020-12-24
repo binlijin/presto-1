@@ -230,7 +230,7 @@ public class UniformNodeSelector
         }
         for (Map.Entry<InternalNode, Collection<Split>> entry : assignment.asMap().entrySet()) {
             for (Split split : entry.getValue()) {
-                log.info("split = " + split + " assign to node = " + entry.getKey());
+                //log.info("split = " + split + " assign to node = " + entry.getKey());
             }
         }
         return new SplitPlacementResult(blocked, assignment);
