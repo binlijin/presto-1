@@ -90,6 +90,7 @@ public class DruidUncompressedSegmentPageSource
                 blocks[i] = columnReader.readBlock(columnHandle.getColumnType(), batchSize, false);
                 if (columnReader.filterBatch()) {
                     filterBatch = true;
+                    break;
                 }
                 //System.out.println("column = " + columnHandle.getColumnName() + ", type " + columnHandle.getColumnType());
                 //System.out.println("batchSize " + batchSize + ", filter batch = " + columnReader.filterBatch());
@@ -98,7 +99,7 @@ public class DruidUncompressedSegmentPageSource
         for (int i = 0; i < blocks.length; i++) {
             DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
             ColumnReader columnReader = segmentReader.getColumnReader(columnHandle.getColumnName());
-            if (!columnReader.hasPostFilter()) {
+            if (null == blocks[i]) {
                 blocks[i] = columnReader.readBlock(columnHandle.getColumnType(), batchSize, filterBatch);
             }
             //blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
