@@ -136,7 +136,7 @@ public class LongColumnReader
     @Override
     public boolean hasPostFilter()
     {
-        return (constantL != null);
+        return (postFilter != null);
     }
 
     @Override

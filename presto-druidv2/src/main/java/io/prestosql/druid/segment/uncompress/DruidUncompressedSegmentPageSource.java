@@ -79,6 +79,7 @@ public class DruidUncompressedSegmentPageSource
             close();
             return null;
         }
+
         Block[] blocks = new Block[columns.size()];
         // First get column that has post filters.
         boolean filterBatch = false;
