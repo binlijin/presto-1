@@ -80,7 +80,7 @@ public class DruidUncompressedSegmentPageSource
             return null;
         }
         Block[] blocks = new Block[columns.size()];
-        //
+        // First get column that has post filters.
         boolean filterBatch = false;
         for (int i = 0; i < blocks.length; i++) {
             DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);

@@ -17,10 +17,15 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.data.Offset;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -34,6 +39,7 @@ public class LongColumnReader
     private final ColumnValueSelector<Long> valueSelector;
     private final DimFilter postFilter;
     private Long constantL;
+    private long[] longArray;
     private boolean batchAllFilter;
 
     public LongColumnReader(Offset offset, ColumnValueSelector valueSelector, DimFilter postFilter)
@@ -49,6 +55,23 @@ public class LongColumnReader
                 }
                 catch (RuntimeException e) {
                     //TODO Do not throw exception?
+                }
+            }
+            else if (this.postFilter instanceof InDimFilter) {
+                InDimFilter inDimFilter = (InDimFilter) this.postFilter;
+                List<Long> values = new ArrayList<>(inDimFilter.getValues().size());
+                for (String value : inDimFilter.getValues()) {
+                    final Long longValue = DimensionHandlerUtils.convertObjectToLong(value);
+                    if (longValue != null) {
+                        values.add(longValue);
+                    }
+                }
+                if (!values.isEmpty()) {
+                    longArray = new long[values.size()];
+                    for (int i = 0; i < values.size(); i++) {
+                        longArray[i] = values.get(i);
+                    }
+                    Arrays.sort(longArray);
                 }
             }
         }
@@ -74,18 +97,40 @@ public class LongColumnReader
                 type.writeLong(builder, value);
             }
             offset.increment();
-            if (constantL != null) {
-                // can not filter
-                if (constantL == value) {
-                    hasValue = true;
+            if (!filterBatch) {
+                if (constantL != null && !hasValue) {
+                    // check SelectorDimFilter
+                    hasValue = checkSelectorDimFilter(value);
+                }
+                else if (longArray != null && !hasValue) {
+                    // check InDimFilter
+                    hasValue = checkInDimFilter(value);
                 }
             }
-            else {
-                hasValue = true;
-            }
         }
-        batchAllFilter = !hasValue;
+        batchAllFilter = false;
+        if (constantL != null && !hasValue) {
+            batchAllFilter = true;
+        }
+        else if (longArray != null && !hasValue) {
+            batchAllFilter = true;
+        }
         return builder.build();
+    }
+
+    boolean checkSelectorDimFilter(long value)
+    {
+        // can not filter
+        if (constantL == value) {
+            return true;
+        }
+        return false;
+    }
+
+    boolean checkInDimFilter(long value)
+    {
+        // can not filter
+        return Arrays.binarySearch(longArray, value) >= 0;
     }
 
     @Override

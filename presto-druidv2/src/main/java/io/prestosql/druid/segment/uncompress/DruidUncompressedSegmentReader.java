@@ -29,8 +29,10 @@ import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.filter.AndDimFilter;
+import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.segment.ColumnSelectorBitmapIndexSelector;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;
@@ -38,8 +40,6 @@ import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.filter.AndFilter;
-import org.apache.druid.segment.filter.BoundFilter;
-import org.apache.druid.segment.filter.InFilter;
 import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -211,15 +211,11 @@ public class DruidUncompressedSegmentReader
                             SelectorFilter selectorFilter = (SelectorFilter) subfilter;
                             postFilterFields.put(selectorFilter.getDimension(), field);
                         }
-                        else if (subfilter instanceof InFilter) {
-                            InFilter inFilter = (InFilter) subfilter;
-                            if (inFilter.getRequiredColumns().size() == 1) {
-                                //TODO
-                                //String dimension = inFilter.getRequiredColumns().iterator().next();
-                                //postFilterFields.put(dimension, inFilter);
-                            }
+                        if (field instanceof InDimFilter) {
+                            InDimFilter inDimFilter = (InDimFilter) field;
+                            postFilterFields.put(inDimFilter.getDimension(), field);
                         }
-                        else if (subfilter instanceof BoundFilter) {
+                        if (field instanceof BoundDimFilter) {
                             //TODO
                         }
                     }
