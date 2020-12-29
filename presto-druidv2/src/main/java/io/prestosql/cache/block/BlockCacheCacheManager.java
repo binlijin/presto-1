@@ -93,6 +93,9 @@ public class BlockCacheCacheManager
                     cachedBlock.release();
                     return CacheResult.HIT;
                 }
+                else {
+                    log.warn("Cache cacheKey = " + cacheKey + ", dataLen = " + cachedBlock.getSerializedLength() + ", request length = " + request.getLength());
+                }
             }
         }
         return CacheResult.MISS;

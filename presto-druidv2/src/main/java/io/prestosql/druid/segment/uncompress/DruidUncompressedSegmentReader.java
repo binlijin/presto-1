@@ -171,6 +171,11 @@ public class DruidUncompressedSegmentReader
         return ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos();
     }
 
+    public Path getSegmentPath()
+    {
+        return segmentPath;
+    }
+
     public ImmutableBitmap analyzeFilter(@Nullable final DimFilter dimFilter)
     {
         ImmutableBitmap filterBitmap = null;
@@ -247,11 +252,11 @@ public class DruidUncompressedSegmentReader
     @Override
     public void close() throws IOException
     {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(segmentPath + " ReadTimeMs = "
-                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
-                    + " ms.");
-        }
+//        if (LOG.isDebugEnabled()) {
+//            LOG.debug(segmentPath + " ReadTimeMs = "
+//                    + ((HDFSSimpleQueryableIndex) queryableIndex).getReadTimeNanos() / 1000000
+//                    + " ms.");
+//        }
         //TODO
         queryableIndex.close();
     }

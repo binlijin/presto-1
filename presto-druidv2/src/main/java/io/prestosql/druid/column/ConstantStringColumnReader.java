@@ -40,9 +40,9 @@ public class ConstantStringColumnReader
     public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
         checkArgument(type == VARCHAR);
-        BlockBuilder builder = type.createBlockBuilder(null, batchSize);
+        BlockBuilder builder = type.createBlockBuilder(null, batchSize, value.length());
         for (int i = 0; i < batchSize; i++) {
-            type.writeSlice(builder, Slices.copyOf(value));
+            type.writeSlice(builder, value);
         }
         return builder.build();
     }

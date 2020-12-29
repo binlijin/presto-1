@@ -155,7 +155,7 @@ public class HDFSByteBuffGenericIndexed<T>
         buffer.position(indexOffset);
         headerBuffer = buffer.slice();
         bufferHeader = null;
-        if (valuesOffset - indexOffset <= 4096) {
+        if (valuesOffset - indexOffset <= 1024 * 64) {
             // TODO lazy read headerBuffer
             byte[] data = new byte[valuesOffset - indexOffset];
             headerBuffer.get(data);
