@@ -17,7 +17,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -27,13 +26,10 @@ import static java.util.Objects.requireNonNull;
 public class FloatColumnReader
         implements ColumnReader
 {
-    private static final float PAD_FLOAT = 0;
-    private final Offset offset;
     private final ColumnValueSelector<Float> valueSelector;
 
-    public FloatColumnReader(Offset offset, ColumnValueSelector valueSelector)
+    public FloatColumnReader(ColumnValueSelector valueSelector)
     {
-        this.offset = requireNonNull(offset, "offset is null");
         this.valueSelector = requireNonNull(valueSelector, "value selector is null");
     }
 
@@ -43,14 +39,7 @@ public class FloatColumnReader
         checkArgument(type == REAL);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            if (filterBatch) {
-                // filter whole batch, no need to get the actual value.
-                type.writeLong(builder, floatToRawIntBits(PAD_FLOAT));
-            }
-            else {
-                type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
-            }
-            offset.increment();
+            type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
         }
 
         return builder.build();

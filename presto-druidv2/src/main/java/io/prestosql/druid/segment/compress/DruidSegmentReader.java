@@ -106,7 +106,7 @@ public class DruidSegmentReader
                 Type type = druidColumn.getColumnType();
                 BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                 ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector, offset, null));
+                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
             }
             columnValueSelectors = selectorsBuilder.build();
         }

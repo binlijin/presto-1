@@ -17,7 +17,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -26,13 +25,10 @@ import static java.util.Objects.requireNonNull;
 public class DoubleColumnReader
         implements ColumnReader
 {
-    private static final double PAD_DOUBLE = 0;
-    private final Offset offset;
     private final ColumnValueSelector<Double> valueSelector;
 
-    public DoubleColumnReader(Offset offset, ColumnValueSelector valueSelector)
+    public DoubleColumnReader(ColumnValueSelector valueSelector)
     {
-        this.offset = requireNonNull(offset, "offset is null");
         this.valueSelector = requireNonNull(valueSelector, "value selector is null");
     }
 
@@ -42,14 +38,7 @@ public class DoubleColumnReader
         checkArgument(type == DOUBLE);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            if (filterBatch) {
-                // filter whole batch, no need to get the actual value.
-                type.writeDouble(builder, PAD_DOUBLE);
-            }
-            else {
-                type.writeDouble(builder, valueSelector.getDouble());
-            }
-            offset.increment();
+            type.writeDouble(builder, valueSelector.getDouble());
         }
 
         return builder.build();

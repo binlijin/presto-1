@@ -17,19 +17,26 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.column.BaseColumn;
+import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampColumnReader
+public class TimestampColumnReaderv2
         implements ColumnReader
 {
+    private static final long PAD_LONG = 0;
+    private final Offset offset;
+    private final BaseColumn baseColumn;
     private final ColumnValueSelector<Long> valueSelector;
 
-    public TimestampColumnReader(ColumnValueSelector valueSelector)
+    public TimestampColumnReaderv2(Offset offset, BaseColumn baseColumn)
     {
-        this.valueSelector = requireNonNull(valueSelector, "value selector is null");
+        this.offset = requireNonNull(offset, "offset is null");
+        this.baseColumn = requireNonNull(baseColumn, "baseColumn is null");
+        this.valueSelector = (ColumnValueSelector<Long>) baseColumn.makeColumnValueSelector(offset);
     }
 
     @Override
@@ -38,7 +45,14 @@ public class TimestampColumnReader
         checkArgument(type == TIMESTAMP);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeLong(builder, valueSelector.getLong());
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                type.writeLong(builder, PAD_LONG);
+            }
+            else {
+                type.writeLong(builder, valueSelector.getLong());
+            }
+            offset.increment();
         }
 
         return builder.build();

@@ -17,28 +17,43 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.column.BaseColumn;
+import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.RealType.REAL;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampColumnReader
+public class FloatColumnReaderv2
         implements ColumnReader
 {
-    private final ColumnValueSelector<Long> valueSelector;
+    private static final float PAD_FLOAT = 0;
+    private final Offset offset;
+    private final BaseColumn baseColumn;
+    private final ColumnValueSelector<Float> valueSelector;
 
-    public TimestampColumnReader(ColumnValueSelector valueSelector)
+    public FloatColumnReaderv2(Offset offset, BaseColumn baseColumn)
     {
-        this.valueSelector = requireNonNull(valueSelector, "value selector is null");
+        this.offset = requireNonNull(offset, "offset is null");
+        this.baseColumn = requireNonNull(baseColumn, "baseColumn is null");
+        this.valueSelector = (ColumnValueSelector<Float>) baseColumn.makeColumnValueSelector(offset);
     }
 
     @Override
     public Block readBlock(Type type, int batchSize, boolean filterBatch)
     {
-        checkArgument(type == TIMESTAMP);
+        checkArgument(type == REAL);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            type.writeLong(builder, valueSelector.getLong());
+            if (filterBatch) {
+                // filter whole batch, no need to get the actual value.
+                type.writeLong(builder, floatToRawIntBits(PAD_FLOAT));
+            }
+            else {
+                type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
+            }
+            offset.increment();
         }
 
         return builder.build();

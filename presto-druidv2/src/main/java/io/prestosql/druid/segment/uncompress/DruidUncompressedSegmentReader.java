@@ -34,7 +34,6 @@ import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.segment.ColumnSelectorBitmapIndexSelector;
-import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
@@ -107,7 +106,7 @@ public class DruidUncompressedSegmentReader
             }
             if (LOG.isDebugEnabled()) {
                 LOG.debug("DruidSegmentReader for " + segmentPath + ", totalRowCount = " + totalRowCount + ", limit = " + limit
-                        + ", filter = " + this.filter);
+                        + ", filter = " + this.filter + ", maxBatchSize = " + maxBatchSize);
             }
             ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
@@ -130,8 +129,8 @@ public class DruidUncompressedSegmentReader
                 }
                 else {
                     BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
-                    ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
-                    selectorsBuilder.put(columnName, createColumnReader(type, valueSelector, offset, postFilterFields.get(columnName)));
+                    //ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
+                    selectorsBuilder.put(columnName, createColumnReader(type, baseColumn, offset, postFilterFields.get(columnName)));
                 }
             }
             columnValueSelectors = selectorsBuilder.build();

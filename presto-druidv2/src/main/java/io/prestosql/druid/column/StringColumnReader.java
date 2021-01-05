@@ -13,13 +13,11 @@
  */
 package io.prestosql.druid.column;
 
-import com.druid.hdfs.reader.column.ColumnValueReader;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.data.Offset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -28,19 +26,11 @@ import static java.util.Objects.requireNonNull;
 public class StringColumnReader
         implements ColumnReader
 {
-    private final Offset offset;
     private final ColumnValueSelector<String> valueSelector;
-    private final boolean optimize;
-    private ColumnValueReader columnValueReader;
 
-    public StringColumnReader(Offset offset, ColumnValueSelector valueSelector)
+    public StringColumnReader(ColumnValueSelector valueSelector)
     {
-        this.offset = requireNonNull(offset, "offset is null");
         this.valueSelector = requireNonNull(valueSelector, "value selector is null");
-        this.optimize = valueSelector instanceof ColumnValueReader;
-        if (optimize) {
-            columnValueReader = (ColumnValueReader) valueSelector;
-        }
     }
 
     @Override
@@ -49,31 +39,13 @@ public class StringColumnReader
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            if (filterBatch) {
-                // filter whole batch, no need to get the actual value, append null value.
-                builder.appendNull();
+            String value = String.valueOf(valueSelector.getObject());
+            if (value != null) {
+                type.writeSlice(builder, Slices.utf8Slice(value));
             }
             else {
-                if (optimize) {
-                    byte[] object = columnValueReader.getObjectByte();
-                    if (object != null && object.length > 0) {
-                        type.writeSlice(builder, Slices.wrappedBuffer(object, 0, object.length));
-                    }
-                    else {
-                        builder.appendNull();
-                    }
-                }
-                else {
-                    String value = String.valueOf(valueSelector.getObject());
-                    if (value != null) {
-                        type.writeSlice(builder, Slices.utf8Slice(value));
-                    }
-                    else {
-                        builder.appendNull();
-                    }
-                }
+                builder.appendNull();
             }
-            offset.increment();
         }
 
         return builder.build();

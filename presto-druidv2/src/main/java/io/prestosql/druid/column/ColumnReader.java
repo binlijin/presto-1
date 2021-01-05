@@ -18,6 +18,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.filter.SelectorFilter;
 
@@ -43,22 +44,42 @@ public interface ColumnReader
         return false;
     }
 
-    static ColumnReader createColumnReader(Type type, ColumnValueSelector valueSelector, Offset offset, DimFilter postFilter)
+    static ColumnReader createColumnReader(Type type, ColumnValueSelector valueSelector)
     {
         if (type == VARCHAR) {
-            return new StringColumnReader(offset, valueSelector);
+            return new StringColumnReader(valueSelector);
         }
         if (type == DOUBLE) {
-            return new DoubleColumnReader(offset, valueSelector);
+            return new DoubleColumnReader(valueSelector);
         }
         if (type == BIGINT) {
-            return new LongColumnReader(offset, valueSelector, postFilter);
+            return new LongColumnReader(valueSelector);
         }
         if (type == REAL) {
-            return new FloatColumnReader(offset, valueSelector);
+            return new FloatColumnReader(valueSelector);
         }
         if (type == TIMESTAMP) {
-            return new TimestampColumnReader(offset, valueSelector);
+            return new TimestampColumnReader(valueSelector);
+        }
+        throw new PrestoException(DRUID_UNSUPPORTED_TYPE_ERROR, format("Unsupported type: %s", type));
+    }
+
+    static ColumnReader createColumnReader(Type type, BaseColumn baseColumn, Offset offset, DimFilter postFilter)
+    {
+        if (type == VARCHAR) {
+            return new StringColumnReaderv2(offset, baseColumn);
+        }
+        if (type == DOUBLE) {
+            return new DoubleColumnReaderv2(offset, baseColumn);
+        }
+        if (type == BIGINT) {
+            return new LongColumnReaderv2(offset, baseColumn, postFilter);
+        }
+        if (type == REAL) {
+            return new FloatColumnReaderv2(offset, baseColumn);
+        }
+        if (type == TIMESTAMP) {
+            return new TimestampColumnReaderv2(offset, baseColumn);
         }
         throw new PrestoException(DRUID_UNSUPPORTED_TYPE_ERROR, format("Unsupported type: %s", type));
     }
