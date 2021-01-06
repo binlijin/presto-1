@@ -50,6 +50,7 @@ public class StringColumnVectorReader
                 // filter whole batch, no need to get the actual value, return fake data.
                 builder.appendNull();
             }
+            vectorOffset.advance();
         }
         else {
             int[] rowVector = singleValueDimensionVectorSelector.getRowVector();

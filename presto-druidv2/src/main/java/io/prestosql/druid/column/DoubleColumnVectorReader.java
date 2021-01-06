@@ -49,6 +49,8 @@ public class DoubleColumnVectorReader
                 // filter whole batch, no need to get the actual value, return fake data.
                 type.writeDouble(builder, PAD_DOUBLE);
             }
+            // advance offset.
+            vectorOffset.advance();
         }
         else {
             double[] doubleVector = vectorValueSelector.getDoubleVector();

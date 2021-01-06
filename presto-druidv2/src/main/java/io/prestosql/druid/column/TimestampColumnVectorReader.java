@@ -49,6 +49,8 @@ public class TimestampColumnVectorReader
                 // filter whole batch, no need to get the actual value, return fake data.
                 type.writeLong(builder, PAD_LONG);
             }
+            // advance offset.
+            vectorOffset.advance();
         }
         else {
             long[] longVector = vectorValueSelector.getLongVector();

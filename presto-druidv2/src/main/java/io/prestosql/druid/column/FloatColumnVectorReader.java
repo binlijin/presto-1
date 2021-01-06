@@ -50,6 +50,8 @@ public class FloatColumnVectorReader
                 // filter whole batch, no need to get the actual value, return fake data.
                 type.writeLong(builder, floatToRawIntBits(PAD_FLOAT));
             }
+            // advance offset.
+            vectorOffset.advance();
         }
         else {
             float[] floatVector = vectorValueSelector.getFloatVector();
