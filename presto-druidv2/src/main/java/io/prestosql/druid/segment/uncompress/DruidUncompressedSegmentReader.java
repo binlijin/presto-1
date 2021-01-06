@@ -17,6 +17,7 @@ import com.druid.hdfs.reader.HDFSSimpleQueryableIndex;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.druid.DruidColumnHandle;
+import io.prestosql.druid.column.BitmapVectorOffset;
 import io.prestosql.druid.column.ColumnReader;
 import io.prestosql.druid.segment.SegmentReader;
 import io.prestosql.spi.PrestoException;
@@ -37,7 +38,6 @@ import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.SelectorFilter;
-import org.apache.druid.segment.vector.BitmapVectorOffset;
 import org.apache.druid.segment.vector.NoFilterVectorOffset;
 import org.apache.druid.segment.vector.VectorOffset;
 import org.apache.hadoop.fs.FileSystem;
@@ -112,10 +112,10 @@ public class DruidUncompressedSegmentReader
             for (ColumnHandle column : columns) {
                 VectorOffset offset = null;
                 if (filterBitmap != null) {
-                    offset = new BitmapVectorOffset(maxBatchSize, filterBitmap, 0, totalRowCount);
+                    offset = new BitmapVectorOffset(maxBatchSize, filterBitmap, 0, queryableIndex.getNumRows());
                 }
                 else {
-                    offset = new NoFilterVectorOffset(maxBatchSize, 0, totalRowCount);
+                    offset = new NoFilterVectorOffset(maxBatchSize, 0, queryableIndex.getNumRows());
                 }
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
