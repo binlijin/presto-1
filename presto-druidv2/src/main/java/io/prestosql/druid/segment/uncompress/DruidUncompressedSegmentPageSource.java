@@ -55,24 +55,30 @@ public class DruidUncompressedSegmentPageSource
         this.startTime = System.nanoTime();
     }
 
-    @Override public long getCompletedBytes()
+    @Override
+    public long getCompletedBytes()
     {
         return completedBytes;
     }
 
-    @Override public long getReadTimeNanos()
+    @Override
+    public long getReadTimeNanos()
     {
         return segmentReader.getReadTimeNanos();
     }
 
-    @Override public boolean isFinished()
+    @Override
+    public boolean isFinished()
     {
         return closed;
     }
 
-    @Override public Page getNextPage()
+    @Override
+    public Page getNextPage()
     {
         long start = System.nanoTime();
+        //HDFSDecompressingByteBufferObjectStrategy.compressTime.putIfAbsent(Thread.currentThread(), new AtomicLong());
+        //HDFSDecompressingByteBufferObjectStrategy.compressNum.putIfAbsent(Thread.currentThread(), new AtomicLong());
         batchId++;
         int batchSize = segmentReader.nextBatch();
         if (batchSize <= 0) {
@@ -108,29 +114,48 @@ public class DruidUncompressedSegmentPageSource
         completedBytes += page.getSizeInBytes();
         completedPositions += page.getPositionCount();
         buildPageTime += (System.nanoTime() - start);
+        //compressTime += HDFSDecompressingByteBufferObjectStrategy.compressTime.get(Thread.currentThread()).get();
+        //compressNum += HDFSDecompressingByteBufferObjectStrategy.compressNum.get(Thread.currentThread()).get();
+        //HDFSDecompressingByteBufferObjectStrategy.compressTime.get(Thread.currentThread()).set(0);
+        //HDFSDecompressingByteBufferObjectStrategy.compressNum.get(Thread.currentThread()).set(0);
         return page;
     }
 
-    @Override public long getSystemMemoryUsage()
+    @Override
+    public long getSystemMemoryUsage()
     {
         return 0;
     }
 
-    @Override public void close()
+    @Override
+    public void close()
     {
         if (closed) {
             return;
         }
-        LOG.debug("buildPageTime = " + buildPageTime / 1000000 + " ms.");
-        //LOG.debug("compressTime = " + compressTime / 1000000 + " ms.");
-        //LOG.debug("compressNum = " + compressNum + " .");
-        //if (compressNum > 0) {
-        //    LOG.debug("Avg per compressTime = " + compressTime / compressNum + " ns.");
-        //}
-        LOG.debug("completedPositions = " + completedPositions + " .");
-        LOG.debug("completedBytes = " + completedBytes + " .");
-        LOG.debug("ConnectorPageSource last = " + (System.nanoTime() - startTime) / 1000000 + " ms.");
-
+        if (compressNum > 0) {
+            LOG.debug(segmentReader.getSegmentPath()
+                    + " buildPageTime = " + buildPageTime / 1000000 + " ms,"
+                    + " compressTime = " + compressTime / 1000000 + " ms,"
+                    + " readTimeMs = " + segmentReader.getReadTimeNanos() / 1000000 + " ms,"
+                    + " ConnectorPageSource last = " + (System.nanoTime() - startTime) / 1000000 + " ms,"
+                    + " otherTime = " + (buildPageTime - compressTime - segmentReader.getReadTimeNanos()) / 1000000 + " ms,"
+                    + " compressNum = " + compressNum + " ,"
+                    + " avg per compressTime = " + compressTime / compressNum + " ns,"
+                    + " completedPositions = " + completedPositions + " , "
+                    + " completedBytes = " + completedBytes + " .");
+        }
+        else {
+            LOG.debug(segmentReader.getSegmentPath()
+                    + " buildPageTime = " + buildPageTime / 1000000 + " ms,"
+                    + " compressTime = " + compressTime / 1000000 + " ms,"
+                    + " readTimeMs = " + segmentReader.getReadTimeNanos() / 1000000 + " ms,"
+                    + " ConnectorPageSource last = " + (System.nanoTime() - startTime) / 1000000 + " ms,"
+                    + " otherTime = " + (buildPageTime - compressTime - segmentReader.getReadTimeNanos()) / 1000000 + " ms,"
+                    + " compressNum = " + compressNum + " ,"
+                    + " completedPositions = " + completedPositions + " , "
+                    + " completedBytes = " + completedBytes + " .");
+        }
         closed = true;
         // TODO: close all column reader and value selectors
         try {

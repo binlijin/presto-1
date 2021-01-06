@@ -20,10 +20,15 @@ import org.apache.druid.segment.data.ObjectStrategy;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class HDFSDecompressingByteBufferObjectStrategy
         implements ObjectStrategy<ResourceHolder<ByteBuffer>>
 {
+    public static Map<Thread, AtomicLong> compressTime = new ConcurrentHashMap<>();
+    public static Map<Thread, AtomicLong> compressNum = new ConcurrentHashMap<>();
     private final ByteOrder order;
     private final CompressionStrategy.Decompressor decompressor;
 
@@ -44,8 +49,20 @@ public class HDFSDecompressingByteBufferObjectStrategy
         final ResourceHolder<ByteBuffer> bufHolder = CompressedPools.getByteBuf(order);
         final ByteBuffer buf = bufHolder.get();
         buf.clear();
+        //long startTime = System.nanoTime();
 
         decompressor.decompress(buffer, numBytes, buf);
+
+//        long endTime = System.nanoTime();
+//        AtomicLong time = compressTime.get(Thread.currentThread());
+//        if (time != null) {
+//            time.addAndGet(endTime - startTime);
+//        }
+//        AtomicLong num = compressNum.get(Thread.currentThread());
+//        if (num != null) {
+//            num.addAndGet(1);
+//        }
+
         // Needed, because if e. g. if this compressed buffer contains 3-byte integers, it should be possible to getInt()
         // from the buffer, including padding. See CompressedVSizeColumnarIntsSupplier.bufferPadding().
         buf.limit(buf.capacity());
