@@ -13,10 +13,10 @@
  */
 package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.column.HDFSLongsColumn;
 import com.druid.hdfs.reader.data.HDFSCompressedColumnarLongsSupplier;
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.segment.column.LongsColumn;
 import org.apache.druid.segment.column.NumericColumn;
 
 public class HDFSLongNumericColumnSupplier
@@ -27,7 +27,7 @@ public class HDFSLongNumericColumnSupplier
     public HDFSLongNumericColumnSupplier(HDFSCompressedColumnarLongsSupplier column,
             ImmutableBitmap nullValueBitmap)
     {
-        this.column = LongsColumn.create(column.get(), nullValueBitmap);
+        this.column = HDFSLongsColumn.create(column.get(), nullValueBitmap);
     }
 
     @Override

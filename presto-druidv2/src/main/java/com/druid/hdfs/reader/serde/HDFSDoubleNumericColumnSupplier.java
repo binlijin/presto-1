@@ -13,9 +13,9 @@
  */
 package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.column.HDFSDoublesColumn;
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.segment.column.DoublesColumn;
 import org.apache.druid.segment.column.NumericColumn;
 import org.apache.druid.segment.data.ColumnarDoubles;
 
@@ -27,7 +27,7 @@ public class HDFSDoubleNumericColumnSupplier
     public HDFSDoubleNumericColumnSupplier(Supplier<ColumnarDoubles> column,
             ImmutableBitmap nullValueBitmap)
     {
-        this.column = DoublesColumn.create(column.get(), nullValueBitmap);
+        this.column = HDFSDoublesColumn.create(column.get(), nullValueBitmap);
     }
 
     @Override

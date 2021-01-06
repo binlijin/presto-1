@@ -13,10 +13,10 @@
  */
 package com.druid.hdfs.reader.serde;
 
+import com.druid.hdfs.reader.column.HDFSFloatsColumn;
 import com.druid.hdfs.reader.data.HDFSCompressedColumnarFloatsSupplier;
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.segment.column.FloatsColumn;
 import org.apache.druid.segment.column.NumericColumn;
 
 public class HDFSFloatNumericColumnSupplier
@@ -27,7 +27,7 @@ public class HDFSFloatNumericColumnSupplier
     public HDFSFloatNumericColumnSupplier(HDFSCompressedColumnarFloatsSupplier column,
             ImmutableBitmap nullValueBitmap)
     {
-        this.column = FloatsColumn.create(column.get(), nullValueBitmap);
+        this.column = HDFSFloatsColumn.create(column.get(), nullValueBitmap);
     }
 
     @Override
