@@ -94,6 +94,8 @@ public class LongColumnVectorReader
                 // filter whole batch, no need to get the actual value, return fake data.
                 type.writeLong(builder, PAD_LONG);
             }
+            // advance offset.
+            vectorOffset.advance();
         }
         else {
             long[] longVector = vectorValueSelector.getLongVector();
@@ -117,6 +119,9 @@ public class LongColumnVectorReader
             batchAllFilter = true;
         }
         else if (longArray != null && !hasValue) {
+            batchAllFilter = true;
+        }
+        if (filterBatch) {
             batchAllFilter = true;
         }
         return builder.build();

@@ -130,6 +130,7 @@ public class DruidUncompressedSegmentReader
                 else {
                     BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                     //ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(offset);
+                    //selectorsBuilder.put(columnName, createColumnReader(type, baseColumn, offset, null));
                     selectorsBuilder.put(columnName, createColumnReader(type, baseColumn, offset, postFilterFields.get(columnName)));
                 }
             }
